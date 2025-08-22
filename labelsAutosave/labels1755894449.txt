@@ -1,0 +1,2 @@
+/* labels for image14.jpg */
+0 76 -32 144 134

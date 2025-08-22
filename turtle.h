@@ -10780,7 +10780,7 @@ void turtleQuadRender(double x1, double y1, double x2, double y2, double x3, dou
     addVertex(x4 * xfact + xcenter, y4 * yfact + ycenter, r, g, b, a, 0, 0, 0);
 }
 
-void turtleTextureRender(int32_t textureCode, double y1, double x1, double y2, double x2, double r, double g, double b, double rot, double xcenter, double ycenter, double xfact, double yfact) {
+void turtleTextureRender(int32_t textureCode, double x1, double y1, double x2, double y2, double r, double g, double b, double rot, double xcenter, double ycenter, double xfact, double yfact) {
     rot += M_PI; // messed up somewhere and this is the simplest way to fix it (rotate 180)
     /* do the rotation math here - rotate on center */
     double avgX = (x1 + x2) / 2;

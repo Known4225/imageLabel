@@ -22,13 +22,14 @@ typedef struct {
     tt_button_t *leftButton;
     tt_button_t *rightButton;
     tt_button_t *newLabelButton;
+    tt_textbox_t *newLabelTextbox;
     int8_t keys[20];
     int8_t selecting;
     double selectAnchorX;
     double selectAnchorY;
     double selectEndX;
     double selectEndY;
-    double labelColors[90];
+    double labelColors[120];
     int32_t currentLabel;
 } imageLabel_t;
 
@@ -49,16 +50,21 @@ void init() {
     list_append(self.imageData, (unitype) 0, 'i');
     list_append(self.imageData, (unitype) 0, 'i');
     list_append(self.labels, (unitype) list_init(), 'r');
+    list_append(self.labelNames, (unitype) "null", 's');
+    list_append(self.labelNames, (unitype) "label1", 's');
+    list_append(self.labelNames, (unitype) "label2", 's');
+    list_append(self.labelNames, (unitype) "label3", 's');
+    list_append(self.labelNames, (unitype) "label4", 's');
     strcpy(self.labelFilename, "labelsAutosave/labels");
     char unixTimestamp[16];
     sprintf(unixTimestamp, "%llu", time(NULL));
     strcat(self.labelFilename, unixTimestamp);
     strcat(self.labelFilename, ".txt");
-    FILE *fpcreate = fopen(self.labelFilename, "w");
-    fclose(fpcreate);
+    // FILE *fpcreate = fopen(self.labelFilename, "w");
+    // fclose(fpcreate);
     self.textureScaleX = 150;
     self.textureScaleY = 150;
-    self.imageX = 0;
+    self.imageX = -140;
     self.imageY = 0;
     self.imageIndex = 1;
 
@@ -69,13 +75,51 @@ void init() {
     self.leftButton -> shape = TT_BUTTON_SHAPE_TEXT;
     self.rightButton -> shape = TT_BUTTON_SHAPE_TEXT;
     self.newLabelButtonVar = 0;
-    self.newLabelButton = buttonInit("New Label", &self.newLabelButtonVar, self.imageX + self.textureScaleX + 80, self.imageY + self.textureScaleY - 10, 10);
+    self.newLabelButton = buttonInit("Create", &self.newLabelButtonVar, self.imageX + self.textureScaleX + 29, self.imageY + self.textureScaleY - 20, 10);
+    self.newLabelTextbox = textboxInit("New Label", 32, self.imageX + self.textureScaleX + 6.7, self.imageY + self.textureScaleY, 10, 100);
 
     self.selecting = 0;
     double labelColorsCopy[] = {
         255, 255, 255,
         255, 0, 0,
         0, 255, 0,
+        0, 0, 255,
+        0, 255, 255,
+        255, 0, 255,
+        255, 255, 0,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
+        255, 255, 255,
     };
     memcpy(self.labelColors, labelColorsCopy, sizeof(labelColorsCopy));
     self.currentLabel = 0;
@@ -128,8 +172,10 @@ void textureInit(const char *filepath) {
 void updateLabelFile() {
     FILE *labelfp = fopen(self.labelFilename, "w");
     for (int32_t i = 1; i < self.labels -> length; i++) {
-        fprintf(labelfp, "/* LABELS FOR %s */\n", self.imageNames -> data[i].s);
         list_t *selections = self.labels -> data[i].r;
+        if (selections -> length > 0) {
+            fprintf(labelfp, "/* labels for %s */\n", self.imageNames -> data[i].s);
+        }
         for (int32_t j = 0; j < selections -> length; j += 5) {
             fprintf(labelfp, "%d %d %d %d %d\n", selections -> data[j].i, (int32_t) selections -> data[j + 1].d, (int32_t) selections -> data[j + 2].d, (int32_t) selections -> data[j + 3].d, (int32_t) selections -> data[j + 4].d);
         }
@@ -180,6 +226,14 @@ void render() {
     } else {
         self.keys[IMAGE_KEYS_RIGHT] = 0;
     }
+    if (self.newLabelButtonVar) {
+        if (strlen(self.newLabelTextbox -> text) > 0) {
+            list_append(self.labelNames, (unitype) self.newLabelTextbox -> text, 's');
+            self.newLabelTextbox -> text[0] = '\0';
+            self.currentLabel = self.labelNames -> length - 1;
+        }
+        self.newLabelButtonVar = 0;
+    }
     /* render image */
     turtleTexture(self.imageIndex, self.imageX - self.textureScaleX, self.imageY - self.textureScaleY, self.imageX + self.textureScaleX, self.imageY + self.textureScaleY, 0, 255, 255, 255);
     /* render all selections */
@@ -202,6 +256,23 @@ void render() {
     /* render UI */
     turtlePenColor(255, 255, 255);
     turtleTextWriteUnicode((unsigned char *) self.imageNames -> data[self.imageIndex].s, self.imageX, self.imageY + self.textureScaleY + 11, 10, 50);
+    int32_t labelHovering = 0;
+    for (int32_t i = 1; i < self.labelNames -> length; i++) {
+        double xpos = self.imageX + self.textureScaleX + 20;
+        double ypos = self.imageY + self.textureScaleY - 13 * i - 28;
+        if (turtle.mouseX >= xpos - 5 && turtle.mouseX <= xpos + 50 && turtle.mouseY >= ypos - 6.3 && turtle.mouseY <= ypos + 6.3) {
+            turtlePenColor(self.labelColors[i * 3] * 0.8, self.labelColors[i * 3 + 1] * 0.8, self.labelColors[i * 3 + 2] * 0.8);
+            turtleTextWriteUnicode((unsigned char *) self.labelNames -> data[i].s, xpos, ypos, 12, 0);
+            labelHovering = i;
+        } else {
+            turtlePenColor(self.labelColors[i * 3], self.labelColors[i * 3 + 1], self.labelColors[i * 3 + 2]);
+            turtleTextWriteUnicode((unsigned char *) self.labelNames -> data[i].s, xpos, ypos, 10, 0);
+        }
+    }
+    if (self.currentLabel > 0) {
+        turtlePenColor(self.labelColors[self.currentLabel * 3], self.labelColors[self.currentLabel * 3 + 1], self.labelColors[self.currentLabel * 3 + 2]);
+        turtleTextWriteString(">", self.imageX + self.textureScaleX + 6.7, self.imageY + self.textureScaleY - 13 * self.currentLabel - 28, 10, 0);
+    }
     /* mouse functions */
     if (turtle.mouseX >= self.imageX - self.textureScaleX && turtle.mouseX <= self.imageX + self.textureScaleX && turtle.mouseY >= self.imageY - self.textureScaleY && turtle.mouseY <= self.imageY + self.textureScaleY) {
         osToolsSetCursor(GLFW_CROSSHAIR_CURSOR);
@@ -211,11 +282,15 @@ void render() {
     if (turtleMouseDown()) {
         if (self.keys[IMAGE_KEYS_LMB] == 0) {
             self.keys[IMAGE_KEYS_LMB] = 1;
-            /* begin selecting */
             if (turtle.mouseX >= self.imageX - self.textureScaleX && turtle.mouseX <= self.imageX + self.textureScaleX && turtle.mouseY >= self.imageY - self.textureScaleY && turtle.mouseY <= self.imageY + self.textureScaleY) {
+                /* begin selecting */
                 self.selecting = 1;
                 self.selectAnchorX = turtle.mouseX;
                 self.selectAnchorY = turtle.mouseY;
+            }
+            if (labelHovering > 0) {
+                /* switch currentLabel */
+                self.currentLabel = labelHovering;
             }
         }
     } else {
