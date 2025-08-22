@@ -4,6 +4,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "include/stb_image.h" // THANK YOU https://github.com/nothings/stb
 #include <time.h>
+#include <dirent.h>
 
 void textureInit(const char *filepath) {
     /* 
@@ -20,93 +21,32 @@ void textureInit(const char *filepath) {
     // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     
-    unsigned int texturePower[8];
-    glGenTextures(8, texturePower);
-    for (int i = 0; i < 8; i++) {
+    unsigned int texturePower[128];
+    glGenTextures(25, texturePower);
+    for (int i = 0; i < 128; i++) {
         glBindTexture(GL_TEXTURE_2D, texturePower[i]);
     }
-    /* each of our images are 512 by 512 */
-    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 512, 512, 9, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    /* each of our images are 640 by 640 */
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 640, 640, 128, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
     int width;
     int height;
     int nbChannels;
     unsigned char *imgData;
-    /* load POWER texture */
-    strcpy(filename, filepath);
-    strcat(filename, "image0.jpg");
-    imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
-    if (imgData != NULL) {
-        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 1, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
-    } else {
-        printf("Could not load texture: %s\n", filename);
+    /* load all textures */
+    for (int i = 0; i < 105; i++) {
+        strcpy(filename, filepath);
+        char exactName[32];
+        sprintf(exactName, "image%d.jpg", i);
+        strcat(filename, exactName);
+        imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
+        if (imgData != NULL) {
+            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, i, width, height, 1, GL_RGB, GL_UNSIGNED_BYTE, imgData);
+        } else {
+            printf("Could not load texture: %s\n", filename);
+        }
+        stbi_image_free(imgData);
     }
-    stbi_image_free(imgData);
-    /* load NOT texture */
-    strcpy(filename, filepath);
-    strcat(filename, "image1.jpg");
-    imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
-    if (imgData != NULL) {
-        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 2, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
-    } else {
-        printf("Could not load texture: %s\n", filename);
-    }
-    /* load AND texture */
-    strcpy(filename, filepath);
-    strcat(filename, "image2.jpg");
-    imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
-    if (imgData != NULL) {
-        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 3, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
-    } else {
-        printf("Could not load texture: %s\n", filename);
-    }
-    /* load OR texture */
-    strcpy(filename, filepath);
-    strcat(filename, "image3.jpg");
-    imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
-    if (imgData != NULL) {
-        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 4, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
-    } else {
-        printf("Could not load texture: %s\n", filename);
-    }
-    /* load XOR texture */
-    strcpy(filename, filepath);
-    strcat(filename, "image4.jpg");
-    imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
-    if (imgData != NULL) {
-        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 5, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
-    } else {
-        printf("Could not load texture: %s\n", filename);
-    }
-    /* load NOR texture */
-    strcpy(filename, filepath);
-    strcat(filename, "image5.jpg");
-    imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
-    if (imgData != NULL) {
-        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 6, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
-    } else {
-        printf("Could not load texture: %s\n", filename);
-    }
-    /* load NAND texture */
-    strcpy(filename, filepath);
-    strcat(filename, "image6.jpg");
-    imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
-    if (imgData != NULL) {
-        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 7, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
-    } else {
-        printf("Could not load texture: %s\n", filename);
-    }
-    stbi_image_free(imgData);
-    /* load BUFFER texture */
-    strcpy(filename, filepath);
-    strcat(filename, "image7.jpg");
-    imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
-    if (imgData != NULL) {
-        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 8, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
-    } else {
-        printf("Could not load texture: %s\n", filename);
-    }
-    stbi_image_free(imgData);
     glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
 }
 
@@ -322,8 +262,8 @@ int main(int argc, char *argv[]) {
 
     /* initialise turtle */
     turtleInit(window, -320, -180, 320, 180);
-    // textureInit("dataset/");
-    logicTextureInit("textures/");
+    textureInit("dataset/");
+    // logicTextureInit("textures/");
     glfwSetWindowSize(window, windowHeight * 16 / 9 * 0.85, monitorSize -> height * 0.85); // doing it this way ensures the window spawns in the top left of the monitor and fixes resizing limits
     /* initialise turtleText */
     turtleTextInit("config/roberto.tgl");
