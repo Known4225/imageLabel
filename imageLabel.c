@@ -34,6 +34,8 @@ typedef struct {
     tt_button_t *rightButton;
     tt_button_t *newLabelButton;
     tt_textbox_t *newLabelTextbox;
+    tt_slider_t *labelRGB[3];
+    tt_textbox_t *renameLabelTextbox;
     int8_t keys[20];
     int8_t selecting;
     double selectAnchorX;
@@ -43,7 +45,6 @@ typedef struct {
     double labelColors[120];
     int32_t currentLabel;
     double labelRGBValue[3];
-    tt_slider_t *labelRGB[3];
 } imageLabel_t;
 
 imageLabel_t self;
@@ -93,12 +94,14 @@ void init() {
     self.labelRGBValue[0] = 255.0;
     self.labelRGBValue[1] = 255.0;
     self.labelRGBValue[2] = 255.0;
-    self.labelRGB[0] = sliderInit("", &self.labelRGBValue[0], TT_SLIDER_HORIZONTAL, TT_SLIDER_ALIGN_CENTER, self.imageX + self.textureScaleX + 160, self.imageY + self.textureScaleY - 20, 6, 100, 0, 255, 0);
-    self.labelRGB[1] = sliderInit("", &self.labelRGBValue[1], TT_SLIDER_HORIZONTAL, TT_SLIDER_ALIGN_CENTER, self.imageX + self.textureScaleX + 160, self.imageY + self.textureScaleY - 30, 6, 100, 0, 255, 0);
-    self.labelRGB[2] = sliderInit("", &self.labelRGBValue[2], TT_SLIDER_HORIZONTAL, TT_SLIDER_ALIGN_CENTER, self.imageX + self.textureScaleX + 160, self.imageY + self.textureScaleY - 40, 6, 100, 0, 255, 0);
+    self.labelRGB[0] = sliderInit("", &self.labelRGBValue[0], TT_SLIDER_HORIZONTAL, TT_SLIDER_ALIGN_CENTER, self.imageX + self.textureScaleX + 210, self.imageY + self.textureScaleY - 20, 6, 100, 0, 255, 0);
+    self.labelRGB[1] = sliderInit("", &self.labelRGBValue[1], TT_SLIDER_HORIZONTAL, TT_SLIDER_ALIGN_CENTER, self.imageX + self.textureScaleX + 210, self.imageY + self.textureScaleY - 30, 6, 100, 0, 255, 0);
+    self.labelRGB[2] = sliderInit("", &self.labelRGBValue[2], TT_SLIDER_HORIZONTAL, TT_SLIDER_ALIGN_CENTER, self.imageX + self.textureScaleX + 210, self.imageY + self.textureScaleY - 40, 6, 100, 0, 255, 0);
     self.labelRGB[0] -> enabled = TT_ELEMENT_HIDE;
     self.labelRGB[1] -> enabled = TT_ELEMENT_HIDE;
     self.labelRGB[2] -> enabled = TT_ELEMENT_HIDE;
+    self.renameLabelTextbox = self.newLabelTextbox = textboxInit("Rename Label", 32, self.imageX + self.textureScaleX + 160, self.imageY + self.textureScaleY, 10, 100);
+    self.renameLabelTextbox -> enabled = TT_ELEMENT_HIDE;
 
     self.selecting = 0;
     double labelColorsCopy[] = {
@@ -256,6 +259,7 @@ void render() {
             self.labelRGBValue[0] = self.labelColors[self.currentLabel * 3];
             self.labelRGBValue[1] = self.labelColors[self.currentLabel * 3 + 1];
             self.labelRGBValue[2] = self.labelColors[self.currentLabel * 3 + 2];
+            strcpy(self.renameLabelTextbox -> text, self.labelNames -> data[self.currentLabel].s);
         }
         self.newLabelButtonVar = 0;
     }
@@ -301,9 +305,11 @@ void render() {
         self.labelRGB[0] -> enabled = TT_ELEMENT_ENABLED;
         self.labelRGB[1] -> enabled = TT_ELEMENT_ENABLED;
         self.labelRGB[2] -> enabled = TT_ELEMENT_ENABLED;
+        self.renameLabelTextbox -> enabled = TT_ELEMENT_ENABLED;
         self.labelColors[self.currentLabel * 3] = self.labelRGBValue[0];
         self.labelColors[self.currentLabel * 3 + 1] = self.labelRGBValue[1];
         self.labelColors[self.currentLabel * 3 + 2] = self.labelRGBValue[2];
+        strcpy(self.labelNames -> data[self.currentLabel].s, self.renameLabelTextbox -> text);
     }
     /* mouse functions */
     if (turtle.mouseX >= self.imageX - self.textureScaleX && turtle.mouseX <= self.imageX + self.textureScaleX && turtle.mouseY >= self.imageY - self.textureScaleY && turtle.mouseY <= self.imageY + self.textureScaleY) {
@@ -326,6 +332,7 @@ void render() {
                 self.labelRGBValue[0] = self.labelColors[self.currentLabel * 3];
                 self.labelRGBValue[1] = self.labelColors[self.currentLabel * 3 + 1];
                 self.labelRGBValue[2] = self.labelColors[self.currentLabel * 3 + 2];
+                strcpy(self.renameLabelTextbox -> text, self.labelNames -> data[self.currentLabel].s);
             }
         }
     } else {
