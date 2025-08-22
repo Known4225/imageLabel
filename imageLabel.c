@@ -5,6 +5,17 @@
 #include "include/stb_image.h" // THANK YOU https://github.com/nothings/stb
 #include <time.h>
 
+/*
+TODO:
+make labelColors a list not an array
+rename labels (textbox that preloads label name when currentLabel changes and directly corresponds to the label name)
+delete label (button)
+resize and delete label (on canvas)
+export dataset
+
+train model? no.
+*/
+
 typedef struct {
     list_t *imageNames; // name
     list_t *imageData; // width, height
@@ -31,6 +42,8 @@ typedef struct {
     double selectEndY;
     double labelColors[120];
     int32_t currentLabel;
+    double labelRGBValue[3];
+    tt_slider_t *labelRGB[3];
 } imageLabel_t;
 
 imageLabel_t self;
@@ -77,6 +90,15 @@ void init() {
     self.newLabelButtonVar = 0;
     self.newLabelButton = buttonInit("Create", &self.newLabelButtonVar, self.imageX + self.textureScaleX + 29, self.imageY + self.textureScaleY - 20, 10);
     self.newLabelTextbox = textboxInit("New Label", 32, self.imageX + self.textureScaleX + 6.7, self.imageY + self.textureScaleY, 10, 100);
+    self.labelRGBValue[0] = 255.0;
+    self.labelRGBValue[1] = 255.0;
+    self.labelRGBValue[2] = 255.0;
+    self.labelRGB[0] = sliderInit("", &self.labelRGBValue[0], TT_SLIDER_HORIZONTAL, TT_SLIDER_ALIGN_CENTER, self.imageX + self.textureScaleX + 160, self.imageY + self.textureScaleY - 20, 6, 100, 0, 255, 0);
+    self.labelRGB[1] = sliderInit("", &self.labelRGBValue[1], TT_SLIDER_HORIZONTAL, TT_SLIDER_ALIGN_CENTER, self.imageX + self.textureScaleX + 160, self.imageY + self.textureScaleY - 30, 6, 100, 0, 255, 0);
+    self.labelRGB[2] = sliderInit("", &self.labelRGBValue[2], TT_SLIDER_HORIZONTAL, TT_SLIDER_ALIGN_CENTER, self.imageX + self.textureScaleX + 160, self.imageY + self.textureScaleY - 40, 6, 100, 0, 255, 0);
+    self.labelRGB[0] -> enabled = TT_ELEMENT_HIDE;
+    self.labelRGB[1] -> enabled = TT_ELEMENT_HIDE;
+    self.labelRGB[2] -> enabled = TT_ELEMENT_HIDE;
 
     self.selecting = 0;
     double labelColorsCopy[] = {
@@ -231,6 +253,9 @@ void render() {
             list_append(self.labelNames, (unitype) self.newLabelTextbox -> text, 's');
             self.newLabelTextbox -> text[0] = '\0';
             self.currentLabel = self.labelNames -> length - 1;
+            self.labelRGBValue[0] = self.labelColors[self.currentLabel * 3];
+            self.labelRGBValue[1] = self.labelColors[self.currentLabel * 3 + 1];
+            self.labelRGBValue[2] = self.labelColors[self.currentLabel * 3 + 2];
         }
         self.newLabelButtonVar = 0;
     }
@@ -254,7 +279,7 @@ void render() {
         turtlePenUp();
     }
     /* render UI */
-    turtlePenColor(255, 255, 255);
+    tt_setColor(TT_COLOR_TEXT);
     turtleTextWriteUnicode((unsigned char *) self.imageNames -> data[self.imageIndex].s, self.imageX, self.imageY + self.textureScaleY + 11, 10, 50);
     int32_t labelHovering = 0;
     for (int32_t i = 1; i < self.labelNames -> length; i++) {
@@ -272,6 +297,13 @@ void render() {
     if (self.currentLabel > 0) {
         turtlePenColor(self.labelColors[self.currentLabel * 3], self.labelColors[self.currentLabel * 3 + 1], self.labelColors[self.currentLabel * 3 + 2]);
         turtleTextWriteString(">", self.imageX + self.textureScaleX + 6.7, self.imageY + self.textureScaleY - 13 * self.currentLabel - 28, 10, 0);
+        /* render label editing UI */
+        self.labelRGB[0] -> enabled = TT_ELEMENT_ENABLED;
+        self.labelRGB[1] -> enabled = TT_ELEMENT_ENABLED;
+        self.labelRGB[2] -> enabled = TT_ELEMENT_ENABLED;
+        self.labelColors[self.currentLabel * 3] = self.labelRGBValue[0];
+        self.labelColors[self.currentLabel * 3 + 1] = self.labelRGBValue[1];
+        self.labelColors[self.currentLabel * 3 + 2] = self.labelRGBValue[2];
     }
     /* mouse functions */
     if (turtle.mouseX >= self.imageX - self.textureScaleX && turtle.mouseX <= self.imageX + self.textureScaleX && turtle.mouseY >= self.imageY - self.textureScaleY && turtle.mouseY <= self.imageY + self.textureScaleY) {
@@ -291,6 +323,9 @@ void render() {
             if (labelHovering > 0) {
                 /* switch currentLabel */
                 self.currentLabel = labelHovering;
+                self.labelRGBValue[0] = self.labelColors[self.currentLabel * 3];
+                self.labelRGBValue[1] = self.labelColors[self.currentLabel * 3 + 1];
+                self.labelRGBValue[2] = self.labelColors[self.currentLabel * 3 + 2];
             }
         }
     } else {
@@ -478,6 +513,15 @@ int main(int argc, char *argv[]) {
         turtleGetMouseCoords();
         turtleClear();
         render();
+        tt_setColor(TT_COLOR_TEXT);
+        if (self.labelRGB[0] -> enabled != TT_ELEMENT_HIDE) {
+            turtleTextWriteString("Red", self.labelRGB[0] -> x - self.labelRGB[0] -> length / 2 - self.labelRGB[0] -> size, self.labelRGB[0] -> y, self.labelRGB[0] -> size - 1, 100);
+            turtleTextWriteStringf(self.labelRGB[0] -> x + self.labelRGB[0] -> length / 2 + self.labelRGB[0] -> size, self.labelRGB[0] -> y, 4, 0, "%d", (int32_t) round(self.labelRGBValue[0]));
+            turtleTextWriteString("Green", self.labelRGB[1] -> x - self.labelRGB[1] -> length / 2 - self.labelRGB[1] -> size, self.labelRGB[1] -> y, self.labelRGB[1] -> size - 1, 100);
+            turtleTextWriteStringf(self.labelRGB[1] -> x + self.labelRGB[1] -> length / 2 + self.labelRGB[1] -> size, self.labelRGB[1] -> y, 4, 0, "%d", (int32_t) round(self.labelRGBValue[1]));
+            turtleTextWriteString("Blue", self.labelRGB[2] -> x - self.labelRGB[2] -> length / 2 - self.labelRGB[2] -> size, self.labelRGB[2] -> y, self.labelRGB[2] -> size - 1, 100);
+            turtleTextWriteStringf(self.labelRGB[2] -> x + self.labelRGB[2] -> length / 2 + self.labelRGB[2] -> size, self.labelRGB[2] -> y, 4, 0, "%d", (int32_t) round(self.labelRGBValue[2]));
+        }
         turtleToolsUpdate(); // update turtleTools
         parseRibbonOutput(); // user defined function to use ribbon
         parsePopupOutput(window); // user defined function to use popup
