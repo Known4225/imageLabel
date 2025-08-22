@@ -6,7 +6,9 @@
 #include <time.h>
 
 typedef struct {
-    list_t *imageNames; // index: textureCode, name
+    list_t *imageNames; // name
+    list_t *imageData; // width, height
+    list_t *labels; // list of lists that goes class, centerX, centerY, width, height (in pixels) (yolo label format)
     double textureScaleX;
     double textureScaleY;
     double imageX;
@@ -14,21 +16,37 @@ typedef struct {
     int32_t imageIndex;
     int8_t leftButtonVar;
     int8_t rightButtonVar;
+    int8_t newLabelButtonVar;
     tt_button_t *leftButton;
     tt_button_t *rightButton;
+    tt_button_t *newLabelButton;
     int8_t keys[20];
+    int8_t selecting;
+    double selectAnchorX;
+    double selectAnchorY;
+    double selectEndX;
+    double selectEndY;
+    double labelColors[90];
+    int32_t currentLabel;
+    list_t *labelNames;
 } imageLabel_t;
 
 imageLabel_t self;
 
 typedef enum {
+    IMAGE_KEYS_LMB = 0,
     IMAGE_KEYS_LEFT = 3,
     IMAGE_KEYS_RIGHT = 4,
 } keyIndex_t;
 
 void init() {
     self.imageNames = list_init();
+    self.imageData = list_init();
+    self.labels = list_init();
     list_append(self.imageNames, (unitype) "null", 's'); // for some reason I cannot put an image in the first slot of the glTexImage3D
+    list_append(self.imageData, (unitype) 0, 'i');
+    list_append(self.imageData, (unitype) 0, 'i');
+    list_append(self.labels, (unitype) list_init(), 'r');
     self.textureScaleX = 150;
     self.textureScaleY = 150;
     self.imageX = 0;
@@ -41,6 +59,18 @@ void init() {
     self.rightButton = buttonInit("NULL >", &self.rightButtonVar, self.imageX + self.textureScaleX, self.imageY - self.textureScaleY - 10, 10);
     self.leftButton -> shape = TT_BUTTON_SHAPE_TEXT;
     self.rightButton -> shape = TT_BUTTON_SHAPE_TEXT;
+    self.newLabelButtonVar = 0;
+    self.newLabelButton = buttonInit("New Label", &self.newLabelButtonVar, self.imageX + self.textureScaleX + 80, self.imageY + self.textureScaleY - 10, 10);
+
+    self.selecting = 0;
+    self.labelNames = list_init();
+    double labelColorsCopy[] = {
+        255, 255, 255,
+        255, 0, 0,
+        0, 255, 0,
+    };
+    memcpy(self.labelColors, labelColorsCopy, sizeof(labelColorsCopy));
+    self.currentLabel = 0;
 }
 
 void textureInit(const char *filepath) {
@@ -52,10 +82,6 @@ void textureInit(const char *filepath) {
     int pathLen = strlen(filepath) + 32;
     char filename[pathLen];
     /* setup texture parameters */
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     
     unsigned int texturePower[128];
@@ -80,8 +106,11 @@ void textureInit(const char *filepath) {
         if (imgData != NULL) {
             glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, self.imageNames -> length, width, height, 1, GL_RGB, GL_UNSIGNED_BYTE, imgData);
             list_append(self.imageNames, (unitype) exactName, 's');
+            list_append(self.imageData, (unitype) width, 'i');
+            list_append(self.imageData, (unitype) height, 'i');
+            list_append(self.labels, (unitype) list_init(), 'r');
         } else {
-            printf("Could not load texture: %s\n", filename);
+            printf("Could not load image: %s\n", filename);
         }
         stbi_image_free(imgData);
     }
@@ -131,9 +160,91 @@ void render() {
     } else {
         self.keys[IMAGE_KEYS_RIGHT] = 0;
     }
-
     /* render image */
     turtleTexture(self.imageIndex, self.imageX - self.textureScaleX, self.imageY - self.textureScaleY, self.imageX + self.textureScaleX, self.imageY + self.textureScaleY, 0, 255, 255, 255);
+    /* render all selections */
+    list_t *selections = self.labels -> data[self.imageIndex].r; // all selections for this image
+    for (int32_t i = 0; i < selections -> length; i += 5) {
+        turtlePenColor(self.labelColors[selections -> data[i].i * 3], self.labelColors[selections -> data[i].i * 3 + 1], self.labelColors[selections -> data[i].i * 3 + 2]);
+        turtlePenSize(2);
+        double centerX = selections -> data[i + 1].d / self.imageData -> data[self.imageIndex * 2].i * self.textureScaleX + self.imageX;
+        double centerY = selections -> data[i + 2].d / self.imageData -> data[self.imageIndex * 2 + 1].i * self.textureScaleY + self.imageY;
+        double width = selections -> data[i + 3].d / self.imageData -> data[self.imageIndex * 2].i * self.textureScaleX;
+        double height = selections -> data[i + 4].d / self.imageData -> data[self.imageIndex * 2 + 1].i * self.textureScaleY;
+        turtleGoto(centerX - width / 2, centerY - height / 2);
+        turtlePenDown();
+        turtleGoto(centerX + width / 2, centerY - height / 2);
+        turtleGoto(centerX + width / 2, centerY + height / 2);
+        turtleGoto(centerX - width / 2, centerY + height / 2);
+        turtleGoto(centerX - width / 2, centerY - height / 2);
+        turtlePenUp();
+    }
+    /* render UI */
+    turtlePenColor(255, 255, 255);
+    turtleTextWriteUnicode((unsigned char *) self.imageNames -> data[self.imageIndex].s, self.imageX, self.imageY + self.textureScaleY + 11, 10, 50);
+    /* mouse functions */
+    if (turtle.mouseX >= self.imageX - self.textureScaleX && turtle.mouseX <= self.imageX + self.textureScaleX && turtle.mouseY >= self.imageY - self.textureScaleY && turtle.mouseY <= self.imageY + self.textureScaleY) {
+        osToolsSetCursor(GLFW_CROSSHAIR_CURSOR);
+    } else {
+        osToolsSetCursor(GLFW_ARROW_CURSOR);
+    }
+    if (turtleMouseDown()) {
+        if (self.keys[IMAGE_KEYS_LMB] == 0) {
+            self.keys[IMAGE_KEYS_LMB] = 1;
+            /* begin selecting */
+            if (turtle.mouseX >= self.imageX - self.textureScaleX && turtle.mouseX <= self.imageX + self.textureScaleX && turtle.mouseY >= self.imageY - self.textureScaleY && turtle.mouseY <= self.imageY + self.textureScaleY) {
+                self.selecting = 1;
+                self.selectAnchorX = turtle.mouseX;
+                self.selectAnchorY = turtle.mouseY;
+            }
+        }
+    } else {
+        if (self.keys[IMAGE_KEYS_LMB] == 1) {
+            self.keys[IMAGE_KEYS_LMB] = 0;
+            if (self.selecting) {
+                /* end selection */
+                double centerX = ((self.selectAnchorX + self.selectEndX) / 2 - self.imageX) / self.textureScaleX * self.imageData -> data[self.imageIndex * 2].i;
+                double centerY = ((self.selectAnchorY + self.selectEndY) / 2 - self.imageY) / self.textureScaleY * self.imageData -> data[self.imageIndex * 2 + 1].i;
+                double width = fabs(self.selectAnchorX - self.selectEndX) / self.textureScaleX * self.imageData -> data[self.imageIndex * 2].i;
+                double height = fabs(self.selectAnchorY - self.selectEndY) / self.textureScaleY * self.imageData -> data[self.imageIndex * 2 + 1].i;
+                list_append(self.labels -> data[self.imageIndex].r, (unitype) self.currentLabel, 'i');
+                list_append(self.labels -> data[self.imageIndex].r, (unitype) centerX, 'd');
+                list_append(self.labels -> data[self.imageIndex].r, (unitype) centerY, 'd');
+                list_append(self.labels -> data[self.imageIndex].r, (unitype) width, 'd');
+                list_append(self.labels -> data[self.imageIndex].r, (unitype) height, 'd');
+                self.selecting = 0;
+            }
+        }
+    }
+    if (self.selecting) {
+        if (turtle.mouseX >= self.imageX - self.textureScaleX && turtle.mouseX <= self.imageX + self.textureScaleX) {
+            self.selectEndX = turtle.mouseX;
+        } else {
+            if (turtle.mouseX < self.imageX - self.textureScaleX) {
+                self.selectEndX = self.imageX - self.textureScaleX;
+            } else {
+                self.selectEndX = self.imageX + self.textureScaleX;
+            }
+        }
+        if (turtle.mouseY >= self.imageY - self.textureScaleY && turtle.mouseY <= self.imageY + self.textureScaleY) {
+            self.selectEndY = turtle.mouseY;
+        } else {
+            if (turtle.mouseY < self.imageY - self.textureScaleY) {
+                self.selectEndY = self.imageY - self.textureScaleY;
+            } else {
+                self.selectEndY = self.imageY + self.textureScaleY;
+            }
+        }
+        turtlePenColor(self.labelColors[self.currentLabel * 3], self.labelColors[self.currentLabel * 3 + 1], self.labelColors[self.currentLabel * 3 + 2]);
+        turtlePenSize(2);
+        turtleGoto(self.selectAnchorX, self.selectAnchorY);
+        turtlePenDown();
+        turtleGoto(self.selectEndX, self.selectAnchorY);
+        turtleGoto(self.selectEndX, self.selectEndY);
+        turtleGoto(self.selectAnchorX, self.selectEndY);
+        turtleGoto(self.selectAnchorX, self.selectAnchorY);
+        turtlePenUp();
+    }
 }
 
 void parseRibbonOutput() {
@@ -253,6 +364,7 @@ int main(int argc, char *argv[]) {
     popupInit("config/popupConfig.txt", -70, -20, 70, 20);
     /* initialise osTools */
     osToolsInit(argv[0], window); // must include argv[0] to get executableFilepath, must include GLFW window
+    osToolsFileDialogAddExtension("txt"); // add txt to extension restrictions
     osToolsFileDialogAddExtension("png"); // add png to extension restrictions
     osToolsFileDialogAddExtension("jpeg"); // add jpeg to extension restrictions
     osToolsFileDialogAddExtension("jpg"); // add jpg to extension restrictions
