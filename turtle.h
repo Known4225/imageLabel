@@ -741,7 +741,7 @@ typedef enum {
     TT_BUTTON_SHAPE_TEXT = 3,
 } tt_button_shape_t;
 
-#define TT_LABEL_LENGTH_LIMIT 24
+#define TT_LABEL_LENGTH_LIMIT 128
 
 /* button */
 typedef struct {
@@ -10780,7 +10780,8 @@ void turtleQuadRender(double x1, double y1, double x2, double y2, double x3, dou
     addVertex(x4 * xfact + xcenter, y4 * yfact + ycenter, r, g, b, a, 0, 0, 0);
 }
 
-void turtleTextureRender(int32_t textureCode, double x1, double y1, double x2, double y2, double r, double g, double b, double rot, double xcenter, double ycenter, double xfact, double yfact) {
+void turtleTextureRender(int32_t textureCode, double y1, double x1, double y2, double x2, double r, double g, double b, double rot, double xcenter, double ycenter, double xfact, double yfact) {
+    rot += M_PI; // messed up somewhere and this is the simplest way to fix it (rotate 180)
     /* do the rotation math here - rotate on center */
     double avgX = (x1 + x2) / 2;
     double avgY = (y1 + y2) / 2;
@@ -10799,10 +10800,10 @@ void turtleTextureRender(int32_t textureCode, double x1, double y1, double x2, d
     double x4 = avgX + x1Displace * sinRot - y2Displace * cosRot;
     double y4 = avgY + x1Displace * cosRot + y2Displace * sinRot;
     addVertex(x1 * xfact + xcenter, y1 * yfact + ycenter, r, g, b, 1.0, 0, 0, textureCode);
-    addVertex(x3 * xfact + xcenter, y3 * yfact + ycenter, r, g, b, 1.0, 1, 0, textureCode);
+    addVertex(x3 * xfact + xcenter, y3 * yfact + ycenter, r, g, b, 1.0, 0, 1, textureCode);
     addVertex(x2 * xfact + xcenter, y2 * yfact + ycenter, r, g, b, 1.0, 1, 1, textureCode);
     addVertex(x1 * xfact + xcenter, y1 * yfact + ycenter, r, g, b, 1.0, 0, 0, textureCode);
-    addVertex(x4 * xfact + xcenter, y4 * yfact + ycenter, r, g, b, 1.0, 0, 1, textureCode);
+    addVertex(x4 * xfact + xcenter, y4 * yfact + ycenter, r, g, b, 1.0, 1, 0, textureCode);
     addVertex(x2 * xfact + xcenter, y2 * yfact + ycenter, r, g, b, 1.0, 1, 1, textureCode);
 }
 
