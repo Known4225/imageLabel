@@ -9,6 +9,8 @@ typedef struct {
     list_t *imageNames; // name
     list_t *imageData; // width, height
     list_t *labels; // list of lists that goes class, centerX, centerY, width, height (in pixels) (yolo label format)
+    list_t *labelNames;
+    char labelFilename[256];
     double textureScaleX;
     double textureScaleY;
     double imageX;
@@ -28,7 +30,6 @@ typedef struct {
     double selectEndY;
     double labelColors[90];
     int32_t currentLabel;
-    list_t *labelNames;
 } imageLabel_t;
 
 imageLabel_t self;
@@ -43,10 +44,18 @@ void init() {
     self.imageNames = list_init();
     self.imageData = list_init();
     self.labels = list_init();
+    self.labelNames = list_init();
     list_append(self.imageNames, (unitype) "null", 's'); // for some reason I cannot put an image in the first slot of the glTexImage3D
     list_append(self.imageData, (unitype) 0, 'i');
     list_append(self.imageData, (unitype) 0, 'i');
     list_append(self.labels, (unitype) list_init(), 'r');
+    strcpy(self.labelFilename, "labelsAutosave/labels");
+    char unixTimestamp[16];
+    sprintf(unixTimestamp, "%llu", time(NULL));
+    strcat(self.labelFilename, unixTimestamp);
+    strcat(self.labelFilename, ".txt");
+    FILE *fpcreate = fopen(self.labelFilename, "w");
+    fclose(fpcreate);
     self.textureScaleX = 150;
     self.textureScaleY = 150;
     self.imageX = 0;
@@ -63,7 +72,6 @@ void init() {
     self.newLabelButton = buttonInit("New Label", &self.newLabelButtonVar, self.imageX + self.textureScaleX + 80, self.imageY + self.textureScaleY - 10, 10);
 
     self.selecting = 0;
-    self.labelNames = list_init();
     double labelColorsCopy[] = {
         255, 255, 255,
         255, 0, 0,
@@ -115,6 +123,18 @@ void textureInit(const char *filepath) {
         stbi_image_free(imgData);
     }
     glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
+}
+
+void updateLabelFile() {
+    FILE *labelfp = fopen(self.labelFilename, "w");
+    for (int32_t i = 1; i < self.labels -> length; i++) {
+        fprintf(labelfp, "/* LABELS FOR %s */\n", self.imageNames -> data[i].s);
+        list_t *selections = self.labels -> data[i].r;
+        for (int32_t j = 0; j < selections -> length; j += 5) {
+            fprintf(labelfp, "%d %d %d %d %d\n", selections -> data[j].i, (int32_t) selections -> data[j + 1].d, (int32_t) selections -> data[j + 2].d, (int32_t) selections -> data[j + 3].d, (int32_t) selections -> data[j + 4].d);
+        }
+    }
+    fclose(labelfp);
 }
 
 void render() {
@@ -212,6 +232,7 @@ void render() {
                 list_append(self.labels -> data[self.imageIndex].r, (unitype) centerY, 'd');
                 list_append(self.labels -> data[self.imageIndex].r, (unitype) width, 'd');
                 list_append(self.labels -> data[self.imageIndex].r, (unitype) height, 'd');
+                updateLabelFile();
                 self.selecting = 0;
             }
         }
