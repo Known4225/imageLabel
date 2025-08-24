@@ -63,17 +63,17 @@ void osToolsIndependentInit(GLFWwindow *window) {
     leftDiagonalCursor.width = 32;
     leftDiagonalCursor.height = 32;
     leftDiagonalCursor.pixels = (unsigned char *) leftDiagonalCursorData;
-    osToolsGLFW.standardCursors[6] = glfwCreateCursor(&leftDiagonalCursor, 16, 16);
+    osToolsGLFW.standardCursors[6] = glfwCreateCursor(&leftDiagonalCursor, 8, 8);
     GLFWimage rightDiagonalCursor;
     rightDiagonalCursor.width = 32;
     rightDiagonalCursor.height = 32;
     rightDiagonalCursor.pixels = (unsigned char *) rightDiagonalCursorData;
-    osToolsGLFW.standardCursors[7] = glfwCreateCursor(&rightDiagonalCursor, 16, 16);
+    osToolsGLFW.standardCursors[7] = glfwCreateCursor(&rightDiagonalCursor, 8, 8);
     GLFWimage moveCursor;
     moveCursor.width = 32;
     moveCursor.height = 32;
     moveCursor.pixels = (unsigned char *) moveCursorData;
-    osToolsGLFW.standardCursors[8] = glfwCreateCursor(&moveCursor, 16, 16);
+    osToolsGLFW.standardCursors[8] = glfwCreateCursor(&moveCursor, 12, 12);
 
     /* initialise memmap module */
     osToolsMemmap.mappedFiles = list_init();

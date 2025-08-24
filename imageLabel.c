@@ -267,6 +267,7 @@ void render() {
     turtleTexture(self.imageIndex, self.imageX - self.textureScaleX, self.imageY - self.textureScaleY, self.imageX + self.textureScaleX, self.imageY + self.textureScaleY, 0, 255, 255, 255);
     /* render all selections */
     int32_t canvasLabelHover = -1;
+    int32_t canvasLabelResize = -1;
     list_t *selections = self.labels -> data[self.imageIndex].r; // all selections for this image
     for (int32_t i = 0; i < selections -> length; i += 5) {
         turtlePenColor(self.labelColors[selections -> data[i].i * 3], self.labelColors[selections -> data[i].i * 3 + 1], self.labelColors[selections -> data[i].i * 3 + 2]);
@@ -284,9 +285,46 @@ void render() {
         turtlePenUp();
         if (turtle.mouseX >= centerX - width / 2 - 5 && turtle.mouseX <= centerX + width / 2 + 5 && turtle.mouseY >= centerY - height / 2 - 5 && turtle.mouseY <= centerY + height / 2 + 5) {
             canvasLabelHover = i;
-            osToolsSetCursor(GLFW_MOVE_CURSOR);
-            if (fabs(turtle.mouseX - centerX) + fabs(turtle.mouseY - centerY) > (width + height - 5)) {
-                /* hovering edge */
+            /* check edge */
+            if (turtle.mouseY - centerY > height / 2 - 5) {
+                if (turtle.mouseX - centerX > width / 2 - 5) {
+                    /* top right */
+                    canvasLabelResize = 1;
+                    osToolsSetCursor(GLFW_DLESIZE_CURSOR);
+                } else if (centerX - turtle.mouseX > width / 2 - 5) {
+                    /* top left */
+                    canvasLabelResize = 7;
+                    osToolsSetCursor(GLFW_DRESIZE_CURSOR);
+                } else {
+                    /* top */
+                    canvasLabelResize = 0;
+                    osToolsSetCursor(GLFW_VRESIZE_CURSOR);
+                }
+            } else if (centerY - turtle.mouseY > height / 2 - 5) {
+                if (turtle.mouseX - centerX > width / 2 - 5) {
+                    /* bottom right */
+                    canvasLabelResize = 3;
+                    osToolsSetCursor(GLFW_DRESIZE_CURSOR);
+                } else if (centerX - turtle.mouseX > width / 2 - 5) {
+                    /* bottom left */
+                    canvasLabelResize = 5;
+                    osToolsSetCursor(GLFW_DLESIZE_CURSOR);
+                } else {
+                    /* bottom */
+                    canvasLabelResize = 4;
+                    osToolsSetCursor(GLFW_VRESIZE_CURSOR);
+                }
+            } else if (turtle.mouseX - centerX > width / 2 - 5) {
+                /* right */
+                canvasLabelResize = 2;
+                osToolsSetCursor(GLFW_HRESIZE_CURSOR);
+            } else if (centerX - turtle.mouseX > width / 2 - 5) {
+                /* left */
+                canvasLabelResize = 6;
+                osToolsSetCursor(GLFW_HRESIZE_CURSOR);
+            }
+            if (canvasLabelResize == -1) {
+                osToolsSetCursor(GLFW_MOVE_CURSOR);
             }
         }
     }
