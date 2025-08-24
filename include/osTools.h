@@ -17,10 +17,16 @@ https://patorjk.com/software/taag/#p=display&f=ANSI%20Shadow
 
 /* required forward declarations (for packaging) */
 typedef struct GLFWcursor GLFWcursor;
+extern const uint32_t moveCursorData[1024];
+extern const uint32_t leftDiagonalCursorData[1024];
+extern const uint32_t rightDiagonalCursorData[1024];
+#define GLFW_DLESIZE_CURSOR     0x00036007
+#define GLFW_DRESIZE_CURSOR     0x00036008
+#define GLFW_MOVE_CURSOR        0x00036009
 
 typedef struct {
     GLFWwindow *osToolsWindow;
-    GLFWcursor *standardCursors[6];
+    GLFWcursor *standardCursors[10];
 } osToolsGLFWObject;
 
 typedef struct {

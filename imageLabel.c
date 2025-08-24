@@ -266,7 +266,7 @@ void render() {
     /* render image */
     turtleTexture(self.imageIndex, self.imageX - self.textureScaleX, self.imageY - self.textureScaleY, self.imageX + self.textureScaleX, self.imageY + self.textureScaleY, 0, 255, 255, 255);
     /* render all selections */
-    int32_t canvasLabelHover = 0;
+    int32_t canvasLabelHover = -1;
     list_t *selections = self.labels -> data[self.imageIndex].r; // all selections for this image
     for (int32_t i = 0; i < selections -> length; i += 5) {
         turtlePenColor(self.labelColors[selections -> data[i].i * 3], self.labelColors[selections -> data[i].i * 3 + 1], self.labelColors[selections -> data[i].i * 3 + 2]);
@@ -284,9 +284,9 @@ void render() {
         turtlePenUp();
         if (turtle.mouseX >= centerX - width / 2 - 5 && turtle.mouseX <= centerX + width / 2 + 5 && turtle.mouseY >= centerY - height / 2 - 5 && turtle.mouseY <= centerY + height / 2 + 5) {
             canvasLabelHover = i;
+            osToolsSetCursor(GLFW_MOVE_CURSOR);
             if (fabs(turtle.mouseX - centerX) + fabs(turtle.mouseY - centerY) > (width + height - 5)) {
                 /* hovering edge */
-                osToolsSetCursor(GLFW_CROSSHAIR_CURSOR);
             }
         }
     }
@@ -320,7 +320,7 @@ void render() {
         strcpy(self.labelNames -> data[self.currentLabel].s, self.renameLabelTextbox -> text);
     }
     /* mouse functions */
-    if (canvasLabelHover == 0) {
+    if (canvasLabelHover == -1) {
         if (turtle.mouseX >= self.imageX - self.textureScaleX && turtle.mouseX <= self.imageX + self.textureScaleX && turtle.mouseY >= self.imageY - self.textureScaleY && turtle.mouseY <= self.imageY + self.textureScaleY) {
             osToolsSetCursor(GLFW_CROSSHAIR_CURSOR);
         } else {

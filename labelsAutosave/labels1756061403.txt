@@ -1,0 +1,2 @@
+/* labels for image0.jpg */
+0 -55 187 605 552
