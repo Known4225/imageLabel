@@ -266,6 +266,7 @@ void render() {
     /* render image */
     turtleTexture(self.imageIndex, self.imageX - self.textureScaleX, self.imageY - self.textureScaleY, self.imageX + self.textureScaleX, self.imageY + self.textureScaleY, 0, 255, 255, 255);
     /* render all selections */
+    int32_t canvasLabelHover = 0;
     list_t *selections = self.labels -> data[self.imageIndex].r; // all selections for this image
     for (int32_t i = 0; i < selections -> length; i += 5) {
         turtlePenColor(self.labelColors[selections -> data[i].i * 3], self.labelColors[selections -> data[i].i * 3 + 1], self.labelColors[selections -> data[i].i * 3 + 2]);
@@ -281,6 +282,13 @@ void render() {
         turtleGoto(centerX - width / 2, centerY + height / 2);
         turtleGoto(centerX - width / 2, centerY - height / 2);
         turtlePenUp();
+        if (turtle.mouseX >= centerX - width / 2 - 5 && turtle.mouseX <= centerX + width / 2 + 5 && turtle.mouseY >= centerY - height / 2 - 5 && turtle.mouseY <= centerY + height / 2 + 5) {
+            canvasLabelHover = i;
+            if (fabs(turtle.mouseX - centerX) + fabs(turtle.mouseY - centerY) > (width + height - 5)) {
+                /* hovering edge */
+                osToolsSetCursor(GLFW_CROSSHAIR_CURSOR);
+            }
+        }
     }
     /* render UI */
     tt_setColor(TT_COLOR_TEXT);
@@ -312,10 +320,12 @@ void render() {
         strcpy(self.labelNames -> data[self.currentLabel].s, self.renameLabelTextbox -> text);
     }
     /* mouse functions */
-    if (turtle.mouseX >= self.imageX - self.textureScaleX && turtle.mouseX <= self.imageX + self.textureScaleX && turtle.mouseY >= self.imageY - self.textureScaleY && turtle.mouseY <= self.imageY + self.textureScaleY) {
-        osToolsSetCursor(GLFW_CROSSHAIR_CURSOR);
-    } else {
-        osToolsSetCursor(GLFW_ARROW_CURSOR);
+    if (canvasLabelHover == 0) {
+        if (turtle.mouseX >= self.imageX - self.textureScaleX && turtle.mouseX <= self.imageX + self.textureScaleX && turtle.mouseY >= self.imageY - self.textureScaleY && turtle.mouseY <= self.imageY + self.textureScaleY) {
+            osToolsSetCursor(GLFW_CROSSHAIR_CURSOR);
+        } else {
+            osToolsSetCursor(GLFW_ARROW_CURSOR);
+        }
     }
     if (turtleMouseDown()) {
         if (self.keys[IMAGE_KEYS_LMB] == 0) {
@@ -499,7 +509,7 @@ int main(int argc, char *argv[]) {
     turtleToolsSetTheme(TT_THEME_DARK); // dark theme preset
     ribbonInit("config/ribbonConfig.txt");
     /* initialise turtleTools popup */
-    popupInit("config/popupConfig.txt", -70, -20, 70, 20);
+    popupInit("config/popupConfig.txt", -60, -20, 60, 20);
     /* initialise osTools */
     osToolsInit(argv[0], window); // must include argv[0] to get executableFilepath, must include GLFW window
     osToolsFileDialogAddExtension("txt"); // add txt to extension restrictions

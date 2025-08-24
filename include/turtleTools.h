@@ -200,7 +200,7 @@ typedef enum {
     TT_BUTTON_SHAPE_TEXT = 3,
 } tt_button_shape_t;
 
-#define TT_LABEL_LENGTH_LIMIT 24
+#define TT_LABEL_LENGTH_LIMIT 128
 
 /* button */
 typedef struct {
