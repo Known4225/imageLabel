@@ -650,13 +650,14 @@ void osToolsDeleteFolder(char *folder) {
     /* https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-removedirectorya */
     char directoryFor[MAX_PATH + 10] = "rd /s /q ";
     int32_t len = strlen(folder);
+    char *holdingCell = strdup(folder);
     for (int32_t i = 0; i < len; i++) {
-        if (folder[i] == '/') {
-            folder[i] = '\\';
+        if (holdingCell[i] == '/') {
+            holdingCell[i] = '\\';
         }
     }
-    strcat(directoryFor, folder);
-    printf("%s\n", directoryFor);
+    strcat(directoryFor, holdingCell);
+    free(holdingCell);
     system(directoryFor);
     // RemoveDirectoryA(folder);
 }
