@@ -872,7 +872,7 @@ typedef struct {
     double size;
     int32_t *variable; // index of selected option
     list_t *options;
-    uint32_t index;
+    int32_t index;
     int32_t status;
     tt_context_direction_t direction;
     double maxXfactor;
@@ -13107,7 +13107,7 @@ tt_context_t *contextInit(list_t *options, int32_t *variable, double x, double y
     contextp -> color.colorOverride = 0;
     elementResetColor(contextp, TT_ELEMENT_CONTEXT);
     contextp -> options = options;
-    contextp -> index = *variable;
+    contextp -> index = -1;
     contextp -> status = 0;
     contextp -> x = x;
     contextp -> y = y;
@@ -13796,16 +13796,24 @@ void contextUpdate() {
         if (contextp -> enabled == TT_ELEMENT_HIDE) {
             continue;
         }
-        double contextX = contextp -> x;
-        double contextY = contextp -> y;
         double itemHeight = (contextp -> size * 1.5);
-        tt_internalColor(contextp, TT_COLOR_DROPDOWN, TT_COLOR_OVERRIDE_SLOT_2);
-        turtleRectangle(contextX, contextY - contextp -> size * 0.7 - (contextp -> options -> length - 1) * itemHeight - 5, contextX + contextp -> maxXfactor + contextp -> size / 2.5, contextY + contextp -> size * 0.7 + 5);
+        double contextX = contextp -> x;
+        double contextY = contextp -> y - itemHeight / 2 - 2;
+        tt_internalColor(contextp, TT_COLOR_DROPDOWN, TT_COLOR_OVERRIDE_SLOT_1);
+        turtleRectangle(contextX, contextY - contextp -> size * 0.7 - (contextp -> options -> length - 1) * itemHeight - 2, contextX + contextp -> maxXfactor + contextp -> size / 1.25, contextY + contextp -> size * 0.7 + 2);
         tt_internalColor(contextp, TT_COLOR_TEXT_ALTERNATE, TT_COLOR_OVERRIDE_SLOT_0);
+        contextp -> index = -1;
         for (int32_t i = 0; i < contextp -> options -> length; i++) {
-            turtleTextWriteUnicode((unsigned char *) contextp -> options -> data[i].s, contextX + contextp -> size / 5, contextY - i * itemHeight, contextp -> size - 1, 0);
+            if (turtle.mouseX > contextX && turtle.mouseX < contextX + contextp -> maxXfactor + contextp -> size / 1.25 && turtle.mouseY > contextY - i * itemHeight - contextp -> size * 0.75 && turtle.mouseY < contextY - i * itemHeight + contextp -> size * 0.75) {
+                tt_internalColor(contextp, TT_COLOR_DROPDOWN_SELECT, TT_COLOR_OVERRIDE_SLOT_2);
+                turtleRectangle(contextX, contextY - i * itemHeight - contextp -> size * 0.75, contextX + contextp -> maxXfactor + contextp -> size / 1.25, contextY - i * itemHeight + contextp -> size * 0.75);
+                tt_internalColor(contextp, TT_COLOR_TEXT_ALTERNATE, TT_COLOR_OVERRIDE_SLOT_0);
+                contextp -> index = i;
+            }
+            turtleTextWriteUnicode((unsigned char *) contextp -> options -> data[i].s, contextX + contextp -> size / 2.5, contextY - i * itemHeight, contextp -> size - 1, 0);
         }
         if (turtleMouseDown()) {
+            *(contextp -> variable) = contextp -> index;
             contextp -> enabled = TT_ELEMENT_HIDE;
         }
     }

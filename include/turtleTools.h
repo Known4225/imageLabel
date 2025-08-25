@@ -331,7 +331,7 @@ typedef struct {
     double size;
     int32_t *variable; // index of selected option
     list_t *options;
-    uint32_t index;
+    int32_t index;
     int32_t status;
     tt_context_direction_t direction;
     double maxXfactor;

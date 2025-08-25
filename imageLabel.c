@@ -7,6 +7,7 @@
 
 /*
 TODO:
+There's a rare and unpredictable bug that causes crashes, overwriting of labelNames when editing the one below it, and also sometimes crashes on context menu?
 resize and delete label (on canvas)
 export dataset
 
@@ -41,6 +42,7 @@ typedef struct {
     tt_slider_t *labelRGB[3];
     tt_textbox_t *renameLabelTextbox;
     tt_context_t *canvasContextMenu;
+    int32_t contextQueue;
     int32_t canvasContextIndex;
     int8_t keys[20];
     int8_t selecting;
@@ -121,6 +123,7 @@ void init() {
 
     list_t *canvasContextOptions = list_init();
     list_append(canvasContextOptions, (unitype) "delete", 's');
+    self.contextQueue = -1;
     self.canvasContextIndex = 0;
     self.canvasContextMenu = contextInit(canvasContextOptions, &self.canvasContextIndex, 0, 0, 10);
     self.canvasContextMenu -> enabled = TT_ELEMENT_HIDE;
@@ -225,6 +228,9 @@ void setCurrentLabel(int32_t value) {
     self.labelRGBValue[1] = self.labelColors -> data[self.currentLabel * 3 + 1].d;
     self.labelRGBValue[2] = self.labelColors -> data[self.currentLabel * 3 + 2].d;
     strcpy(self.renameLabelTextbox -> text, self.labelNames -> data[self.currentLabel].s);
+    char deleteButtonStr[128] = "Delete ";
+    strcat(deleteButtonStr, self.labelNames -> data[self.currentLabel].s);
+    strcpy(self.deleteLabelButton -> label, deleteButtonStr);
 }
 
 void render() {
@@ -379,10 +385,12 @@ void render() {
         self.labelColors -> data[self.currentLabel * 3].d = self.labelRGBValue[0];
         self.labelColors -> data[self.currentLabel * 3 + 1].d = self.labelRGBValue[1];
         self.labelColors -> data[self.currentLabel * 3 + 2].d = self.labelRGBValue[2];
-        strcpy(self.labelNames -> data[self.currentLabel].s, self.renameLabelTextbox -> text);
-        char deleteButtonStr[128] = "Delete ";
-        strcat(deleteButtonStr, self.labelNames -> data[self.currentLabel].s);
-        strcpy(self.deleteLabelButton -> label, deleteButtonStr);
+        if (self.renameLabelTextbox -> status > 0) {
+            strcpy(self.labelNames -> data[self.currentLabel].s, self.renameLabelTextbox -> text);
+            char deleteButtonStr[128] = "Delete ";
+            strcat(deleteButtonStr, self.labelNames -> data[self.currentLabel].s);
+            strcpy(self.deleteLabelButton -> label, deleteButtonStr);
+        }
         if (self.deleteLabelButtonVar) {
             /* delete label */
             list_delete(self.labelNames, self.currentLabel);
@@ -407,7 +415,7 @@ void render() {
             osToolsSetCursor(GLFW_ARROW_CURSOR);
         }
     }
-    if (turtleMouseDown()) {
+    if (turtleMouseDown() && self.contextQueue == -1) {
         if (self.keys[IMAGE_KEYS_LMB] == 0) {
             self.keys[IMAGE_KEYS_LMB] = 1;
             if (canvasLabelHover > -1) {
@@ -478,18 +486,47 @@ void render() {
                 self.selecting = 0;
             } else if (self.movingSelection > -1) {
                 self.movingSelection = -1;
+                updateLabelFile();
             } else if (self.resizingSelection > -1) {
                 self.resizingSelection = -1;
                 self.resizingDirection = -1;
+                updateLabelFile();
             }
         }
+    }
+    if (self.canvasContextMenu -> enabled == TT_ELEMENT_HIDE && self.contextQueue != -1) {
+        /* results of recently hit context option are in self.canvasContextIndex */
+        if (self.canvasContextIndex == 0) {
+            /* delete */
+            for (int32_t i = 0; i < 5; i++) {
+                list_delete(selections, self.contextQueue);
+                updateLabelFile();
+            }
+        }
+        if (self.canvasContextIndex > 0) {
+            /* switch label to this */
+            selections -> data[self.contextQueue].i = self.canvasContextIndex;
+            updateLabelFile();
+        }
+        self.contextQueue = -1;
     }
     if (turtleMouseRight()) {
         if (self.keys[IMAGE_KEYS_RMB] == 0) {
             self.keys[IMAGE_KEYS_RMB] = 1;
-            self.canvasContextMenu -> enabled = TT_ELEMENT_ENABLED;
-            self.canvasContextMenu -> x = turtle.mouseX;
-            self.canvasContextMenu -> y = turtle.mouseY;
+            if (canvasLabelHover > -1) {
+                list_clear(self.canvasContextMenu -> options);
+                list_append(self.canvasContextMenu -> options, (unitype) "delete", 's');
+                for (int32_t i = 1; i < self.labelNames -> length; i++) {
+                    // printf("%s\n", self.labelNames -> data[i].s);
+                    list_append(self.canvasContextMenu -> options, self.labelNames -> data[i], 's');
+                    // list_append(self.canvasContextMenu -> options, (unitype) "option", 's');
+                }
+                contextCalculateMax(self.canvasContextMenu);
+                self.canvasContextMenu -> enabled = TT_ELEMENT_ENABLED;
+                self.canvasContextMenu -> x = turtle.mouseX;
+                self.canvasContextMenu -> y = turtle.mouseY;
+                self.contextQueue = canvasLabelHover;
+            }
         }
     } else {
         self.keys[IMAGE_KEYS_RMB] = 0;
