@@ -10,6 +10,13 @@ You can then label the images with the mouse
 
 To export the labels in the YOLO format, go to File -> Export. This will save a bunch of `.txt` files with names matching the images to the `labels/` folder.
 
+The YOLO format has one labels text file for each image. It has the following format
+```
+classID, centerX, centerY, width, height
+```
+
+where the `centerX`, `centerY`, `width`, `height` range from 0 to 1.
+
 # Ensure the following about your dataset
 
 - All image are 640x640

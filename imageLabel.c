@@ -750,7 +750,7 @@ void exportLabels() {
         FILE *fp = fopen(name, "w");
         list_t *selections = self.labels -> data[i].r;
         for (int32_t j = 0; j < selections -> length; j += 5) {
-            fprintf(fp, "%d %d %d %d %d\n", selections -> data[j].i, (int32_t) selections -> data[j + 1].d, (int32_t) selections -> data[j + 2].d, (int32_t) selections -> data[j + 3].d, (int32_t) selections -> data[j + 4].d);
+            fprintf(fp, "%d %lf %lf %lf %lf\n", selections -> data[j].i, selections -> data[j + 1].d / self.imageData -> data[i * 2].i, selections -> data[j + 2].d / self.imageData -> data[i * 2 + 1].i, selections -> data[j + 3].d / self.imageData -> data[i * 2].i, selections -> data[j + 4].d / self.imageData -> data[i * 2 + 1].i);
         }
         fclose(fp);
     }
@@ -872,6 +872,9 @@ int main(int argc, char *argv[]) {
     
     init();
     textureInit("dataset/");
+    if (argc > 1) {
+        importLabels(argv[1]);
+    }
 
     uint32_t tps = 120; // ticks per second (locked to fps in this case)
     uint64_t tick = 0; // count number of ticks since application started
