@@ -1,0 +1,2 @@
+/* labels for image0.jpg */
+0 286 416 61 54

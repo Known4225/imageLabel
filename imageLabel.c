@@ -8,7 +8,6 @@
 /*
 TODO:
 make labelColors a list not an array
-rename labels (textbox that preloads label name when currentLabel changes and directly corresponds to the label name)
 delete label (button)
 resize and delete label (on canvas)
 export dataset
@@ -40,6 +39,8 @@ typedef struct {
     tt_textbox_t *newLabelTextbox;
     tt_slider_t *labelRGB[3];
     tt_textbox_t *renameLabelTextbox;
+    tt_context_t *canvasContextMenu;
+    int32_t canvasContextIndex;
     int8_t keys[20];
     int8_t selecting;
     int32_t movingSelection;
@@ -60,6 +61,7 @@ imageLabel_t self;
 
 typedef enum {
     IMAGE_KEYS_LMB = 0,
+    IMAGE_KEYS_RMB = 1,
     IMAGE_KEYS_LEFT = 3,
     IMAGE_KEYS_RIGHT = 4,
 } keyIndex_t;
@@ -111,6 +113,12 @@ void init() {
     self.labelRGB[2] -> enabled = TT_ELEMENT_HIDE;
     self.renameLabelTextbox = textboxInit("Rename Label", 32, self.imageX + self.textureScaleX + 160, self.imageY + self.textureScaleY, 10, 100);
     self.renameLabelTextbox -> enabled = TT_ELEMENT_HIDE;
+
+    list_t *canvasContextOptions = list_init();
+    list_append(canvasContextOptions, (unitype) "delete", 's');
+    self.canvasContextIndex = 0;
+    self.canvasContextMenu = contextInit(canvasContextOptions, &self.canvasContextIndex, 0, 0, 10);
+    self.canvasContextMenu -> enabled = TT_ELEMENT_HIDE;
 
     self.selecting = 0;
     self.movingSelection = -1;
@@ -458,6 +466,16 @@ void render() {
                 self.resizingDirection = -1;
             }
         }
+    }
+    if (turtleMouseRight()) {
+        if (self.keys[IMAGE_KEYS_RMB] == 0) {
+            self.keys[IMAGE_KEYS_RMB] = 1;
+            self.canvasContextMenu -> enabled = TT_ELEMENT_ENABLED;
+            self.canvasContextMenu -> x = turtle.mouseX;
+            self.canvasContextMenu -> y = turtle.mouseY;
+        }
+    } else {
+        self.keys[IMAGE_KEYS_RMB] = 0;
     }
     if (self.selecting) {
         if (turtle.mouseX >= self.imageX - self.textureScaleX && turtle.mouseX <= self.imageX + self.textureScaleX) {

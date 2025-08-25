@@ -584,6 +584,7 @@ typedef struct {
     int8_t dialEnabled;
     int8_t sliderEnabled;
     int8_t scrollbarEnabled;
+    int8_t contextEnabled;
     int8_t dropdownEnabled;
     int8_t textboxEnabled;
 } tt_enabled_t;
@@ -596,9 +597,10 @@ typedef enum {
     TT_ELEMENT_DIAL = 2,
     TT_ELEMENT_SLIDER = 3,
     TT_ELEMENT_SCROLLBAR = 4,
-    TT_ELEMENT_DROPDOWN = 5,
-    TT_ELEMENT_TEXTBOX = 6,
-    TT_NUMBER_OF_ELEMENTS = 7,
+    TT_ELEMENT_CONTEXT = 5,
+    TT_ELEMENT_DROPDOWN = 6,
+    TT_ELEMENT_TEXTBOX = 7,
+    TT_NUMBER_OF_ELEMENTS = 8,
 } tt_element_names_t;
 
 typedef struct {
@@ -608,6 +610,7 @@ typedef struct {
     list_t *dials;
     list_t *sliders;
     list_t *scrollbars;
+    list_t *contexts;
     list_t *dropdowns;
     list_t *textboxes;
 } tt_elements_t;
@@ -853,6 +856,29 @@ typedef struct {
 } tt_scrollbar_t;
 
 typedef enum {
+    TT_CONTEXT_DIRECTION_UP_LEFT = 0,
+    TT_CONTEXT_DIRECTION_UP_RIGHT = 1,
+    TT_CONTEXT_DIRECTION_DOWN_LEFT = 1,
+    TT_CONTEXT_DIRECTION_DOWN_RIGHT = 1,
+} tt_context_direction_t;
+
+/* context menu */
+typedef struct {
+    tt_element_names_t element;
+    tt_element_enabled_t enabled;
+    tt_color_override_t color;
+    double x;
+    double y;
+    double size;
+    int32_t *variable; // index of selected option
+    list_t *options;
+    uint32_t index;
+    int32_t status;
+    tt_context_direction_t direction;
+    double maxXfactor;
+} tt_context_t;
+
+typedef enum {
     TT_DROPDOWN_ALIGN_LEFT = 0,
     TT_DROPDOWN_ALIGN_CENTER = 1,
     TT_DROPDOWN_ALIGN_RIGHT = 2,
@@ -948,7 +974,13 @@ tt_scrollbar_t *scrollbarInit(double *variable, tt_scrollbar_type_t type, double
 
 void scrollbarFree(tt_scrollbar_t *scrollbarp);
 
-void dropdownCalculateMax(tt_dropdown_t *dropdown);
+void contextCalculateMax(tt_context_t *contextp);
+
+tt_context_t *contextInit();
+
+void contextFree(tt_context_t *contextp);
+
+void dropdownCalculateMax(tt_dropdown_t *dropdownp);
 
 /* create a dropdown - use a list of strings for options */
 tt_dropdown_t *dropdownInit(char *label, list_t *options, int32_t *variable, tt_dropdown_align_t align, double x, double y, double size);
@@ -12833,15 +12865,15 @@ void tt_colorOverride(void *element, double *colors, uint32_t length) {
 }
 
 int32_t tt_color_override_default[] = {
-    /*  button                    switch                      dial                  slider                   scrollbar                   dropdown               textbox  */
-    TT_COLOR_TEXT_ALTERNATE, TT_COLOR_TEXT,              TT_COLOR_TEXT,       TT_COLOR_TEXT,          0,                          TT_COLOR_TEXT,              TT_COLOR_TEXT_ALTERNATE,
-    TT_COLOR_BUTTON,         TT_COLOR_SWITCH_TEXT_HOVER, TT_COLOR_DIAL,       TT_COLOR_SLIDER_BAR,    TT_COLOR_SCROLLBAR_BASE,    TT_COLOR_TEXT_ALTERNATE,    TT_COLOR_TEXTBOX_BOX,
-    TT_COLOR_BUTTON_SELECT,  TT_COLOR_SWITCH_ON,         TT_COLOR_DIAL_INNER, TT_COLOR_SLIDER_CIRCLE, TT_COLOR_SCROLLBAR_HOVER,   TT_COLOR_DROPDOWN,          TT_COLOR_TEXTBOX_PHANTOM_TEXT,
-    TT_COLOR_TEXT,           TT_COLOR_SWITCH_OFF,        0,                   0,                      TT_COLOR_SCROLLBAR_CLICKED, TT_COLOR_DROPDOWN_SELECT,   TT_COLOR_TEXTBOX_LINE,
-    TT_COLOR_BUTTON_CLICKED, TT_COLOR_SWITCH_CIRCLE_ON,  0,                   0,                      TT_COLOR_SCROLLBAR_BAR,     TT_COLOR_DROPDOWN_HOVER,    TT_COLOR_TEXTBOX_SELECT,
-    0,                       TT_COLOR_SWITCH_CIRCLE_OFF, 0,                   0,                      0,                          TT_COLOR_DROPDOWN_TRIANGLE, 0,
-    0,                       0,                          0,                   0,                      0,                          0,                          0,
-    0,                       0,                          0,                   0,                      0,                          0,                          0,
+    /*  button                    switch                      dial                  slider                   scrollbar                  context                         dropdown               textbox  */
+    TT_COLOR_TEXT_ALTERNATE, TT_COLOR_TEXT,              TT_COLOR_TEXT,       TT_COLOR_TEXT,          0,                          TT_COLOR_TEXT_ALTERNATE,    TT_COLOR_TEXT,              TT_COLOR_TEXT_ALTERNATE,
+    TT_COLOR_BUTTON,         TT_COLOR_SWITCH_TEXT_HOVER, TT_COLOR_DIAL,       TT_COLOR_SLIDER_BAR,    TT_COLOR_SCROLLBAR_BASE,    0,                          TT_COLOR_TEXT_ALTERNATE,    TT_COLOR_TEXTBOX_BOX,
+    TT_COLOR_BUTTON_SELECT,  TT_COLOR_SWITCH_ON,         TT_COLOR_DIAL_INNER, TT_COLOR_SLIDER_CIRCLE, TT_COLOR_SCROLLBAR_HOVER,   0,                          TT_COLOR_DROPDOWN,          TT_COLOR_TEXTBOX_PHANTOM_TEXT,
+    TT_COLOR_TEXT,           TT_COLOR_SWITCH_OFF,        0,                   0,                      TT_COLOR_SCROLLBAR_CLICKED, 0,                          TT_COLOR_DROPDOWN_SELECT,   TT_COLOR_TEXTBOX_LINE,
+    TT_COLOR_BUTTON_CLICKED, TT_COLOR_SWITCH_CIRCLE_ON,  0,                   0,                      TT_COLOR_SCROLLBAR_BAR,     0,                          TT_COLOR_DROPDOWN_HOVER,    TT_COLOR_TEXTBOX_SELECT,
+    0,                       TT_COLOR_SWITCH_CIRCLE_OFF, 0,                   0,                      0,                          0,                          TT_COLOR_DROPDOWN_TRIANGLE, 0,
+    0,                       0,                          0,                   0,                      0,                          0,                          0,                          0,
+    0,                       0,                          0,                   0,                      0,                          0,                          0,                          0,
 };
 
 void elementResetColor(void *elementp, int32_t elementType) {
@@ -13050,12 +13082,56 @@ void scrollbarFree(tt_scrollbar_t *scrollbarp) {
     list_remove(tt_elements.scrollbars, (unitype) (void *) scrollbarp, 'p');
 }
 
-void dropdownCalculateMax(tt_dropdown_t *dropdown) {
-    dropdown -> maxXfactor = 0;
-    for (uint32_t i = 0; i < dropdown -> options -> length; i++) {
-        double stringLength = turtleTextGetStringLength(dropdown -> options -> data[i].s, dropdown -> size - 1);
-        if (stringLength > dropdown -> maxXfactor) {
-            dropdown -> maxXfactor = stringLength;
+void contextCalculateMax(tt_context_t *contextp) {
+    contextp -> maxXfactor = 0;
+    for (uint32_t i = 0; i < contextp -> options -> length; i++) {
+        double stringLength = turtleTextGetStringLength(contextp -> options -> data[i].s, contextp -> size - 1);
+        if (stringLength > contextp -> maxXfactor) {
+            contextp -> maxXfactor = stringLength;
+        }
+    }
+}
+
+tt_context_t *contextInit(list_t *options, int32_t *variable, double x, double y, double size) {
+    if (tt_enabled.contextEnabled == 0) {
+        tt_enabled.contextEnabled = 1;
+        tt_elements.contexts = list_init();
+    }
+    if (tt_enabled.turtleToolsEnabled == 0) {
+        tt_enabled.turtleToolsEnabled = 1;
+        tt_elements.all = list_init();
+    }
+    tt_context_t *contextp = malloc(sizeof(tt_context_t));
+    contextp -> element = TT_ELEMENT_CONTEXT;
+    contextp -> enabled = TT_ELEMENT_ENABLED;
+    contextp -> color.colorOverride = 0;
+    elementResetColor(contextp, TT_ELEMENT_CONTEXT);
+    contextp -> options = options;
+    contextp -> index = *variable;
+    contextp -> status = 0;
+    contextp -> x = x;
+    contextp -> y = y;
+    contextp -> size = size;
+    contextp -> variable = variable;
+    contextCalculateMax(contextp);
+    contextp -> direction = TT_CONTEXT_DIRECTION_DOWN_RIGHT;
+    list_append(tt_elements.contexts, (unitype) (void *) contextp, 'p');
+    list_append(tt_elements.all, (unitype) (void *) contextp, 'l');
+    return contextp;
+}
+
+void contextFree(tt_context_t *contextp) {
+    list_free(contextp -> options);
+    list_remove(tt_elements.all, (unitype) (uint64_t) contextp, 'l');
+    list_remove(tt_elements.contexts, (unitype) (void *) contextp, 'p');
+}
+
+void dropdownCalculateMax(tt_dropdown_t *dropdownp) {
+    dropdownp -> maxXfactor = 0;
+    for (uint32_t i = 0; i < dropdownp -> options -> length; i++) {
+        double stringLength = turtleTextGetStringLength(dropdownp -> options -> data[i].s, dropdownp -> size - 1);
+        if (stringLength > dropdownp -> maxXfactor) {
+            dropdownp -> maxXfactor = stringLength;
         }
     }
 }
@@ -13096,6 +13172,7 @@ tt_dropdown_t *dropdownInit(char *label, list_t *options, int32_t *variable, tt_
 }
 
 void dropdownFree(tt_dropdown_t *dropdownp) {
+    list_free(dropdownp -> options);
     list_remove(tt_elements.all, (unitype) (uint64_t) dropdownp, 'l');
     list_remove(tt_elements.dropdowns, (unitype) (void *) dropdownp, 'p');
 }
@@ -13713,6 +13790,27 @@ void scrollbarUpdate() {
     }
 }
 
+void contextUpdate() {
+    for (uint32_t i = 0; i < tt_elements.contexts -> length; i++) {
+        tt_context_t *contextp = (tt_context_t *) (tt_elements.contexts -> data[i].p);
+        if (contextp -> enabled == TT_ELEMENT_HIDE) {
+            continue;
+        }
+        double contextX = contextp -> x;
+        double contextY = contextp -> y;
+        double itemHeight = (contextp -> size * 1.5);
+        tt_internalColor(contextp, TT_COLOR_DROPDOWN, TT_COLOR_OVERRIDE_SLOT_2);
+        turtleRectangle(contextX, contextY - contextp -> size * 0.7 - (contextp -> options -> length - 1) * itemHeight - 5, contextX + contextp -> maxXfactor + contextp -> size / 2.5, contextY + contextp -> size * 0.7 + 5);
+        tt_internalColor(contextp, TT_COLOR_TEXT_ALTERNATE, TT_COLOR_OVERRIDE_SLOT_0);
+        for (int32_t i = 0; i < contextp -> options -> length; i++) {
+            turtleTextWriteUnicode((unsigned char *) contextp -> options -> data[i].s, contextX + contextp -> size / 5, contextY - i * itemHeight, contextp -> size - 1, 0);
+        }
+        if (turtleMouseDown()) {
+            contextp -> enabled = TT_ELEMENT_HIDE;
+        }
+    }
+}
+
 void dropdownUpdate() {
     int32_t logicIndex = -1;
     for (uint32_t i = 0; i < tt_elements.dropdowns -> length; i++) {
@@ -14210,6 +14308,9 @@ void turtleToolsUpdate() {
     }
     if (tt_enabled.scrollbarEnabled) {
         scrollbarUpdate();
+    }
+    if (tt_enabled.contextEnabled) {
+        contextUpdate();
     }
     if (tt_enabled.ribbonEnabled) {
         ribbonUpdate();
