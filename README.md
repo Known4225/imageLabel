@@ -21,3 +21,5 @@ where the `centerX`, `centerY`, `width`, `height` range from 0 to 1.
 
 - All image are 640x640
 - All images are RGB formatted (no transparency)
+
+![exampleImage](images/example.png)
