@@ -7,8 +7,6 @@
 
 /*
 TODO:
-make labelColors a list not an array
-delete label (button)
 resize and delete label (on canvas)
 export dataset
 
@@ -539,6 +537,7 @@ void render() {
         if (selections -> data[self.movingSelection + 2].d - selections -> data[self.movingSelection + 4].d / 2 < 0) {
             selections -> data[self.movingSelection + 2].d = selections -> data[self.movingSelection + 4].d / 2;
         }
+        osToolsSetCursor(GLFW_MOVE_CURSOR);
     } else if (self.resizingSelection > -1) {
         if (self.resizingDirection == 7 || self.resizingDirection == 0 || self.resizingDirection == 1) {
             /* top function */
@@ -595,6 +594,28 @@ void render() {
                 selections -> data[self.resizingSelection + 3].d = self.imageData -> data[self.imageIndex * 2].i - leftBar;
                 selections -> data[self.resizingSelection + 1].d = (leftBar + self.imageData -> data[self.imageIndex * 2].i) / 2;
             }
+        }
+        /* cursor */
+        switch (self.resizingDirection) {
+        case 0:
+        case 4:
+            osToolsSetCursor(GLFW_VRESIZE_CURSOR);
+        break;
+        case 1:
+        case 5:
+            osToolsSetCursor(GLFW_DLESIZE_CURSOR);
+        break;
+        case 2:
+        case 6:
+            osToolsSetCursor(GLFW_HRESIZE_CURSOR);
+        break;
+        case 3:
+        case 7:
+            osToolsSetCursor(GLFW_DRESIZE_CURSOR);
+        break;
+        default:
+            osToolsSetCursor(GLFW_ARROW_CURSOR);
+        break;
         }
     }
     // list_print(selections);

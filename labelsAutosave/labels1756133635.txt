@@ -1,0 +1,2 @@
+/* labels for image0.jpg */
+0 312 417 173 155
