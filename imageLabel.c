@@ -33,10 +33,13 @@ typedef struct {
     int8_t leftButtonVar;
     int8_t rightButtonVar;
     int8_t newLabelButtonVar;
+    int8_t deleteLabelButtonVar;
     tt_button_t *leftButton;
     tt_button_t *rightButton;
     tt_button_t *newLabelButton;
+    tt_button_t *deleteLabelButton;
     tt_textbox_t *newLabelTextbox;
+    int32_t newLabelTextboxLastStatus;
     tt_slider_t *labelRGB[3];
     tt_textbox_t *renameLabelTextbox;
     tt_context_t *canvasContextMenu;
@@ -52,7 +55,7 @@ typedef struct {
     double selectEndY;
     double selectCenterX;
     double selectCenterY;
-    double labelColors[120];
+    list_t *labelColors;
     int32_t currentLabel;
     double labelRGBValue[3];
 } imageLabel_t;
@@ -102,6 +105,7 @@ void init() {
     self.newLabelButtonVar = 0;
     self.newLabelButton = buttonInit("Create", &self.newLabelButtonVar, self.imageX + self.textureScaleX + 29, self.imageY + self.textureScaleY - 20, 10);
     self.newLabelTextbox = textboxInit("New Label", 32, self.imageX + self.textureScaleX + 6.7, self.imageY + self.textureScaleY, 10, 100);
+    self.newLabelTextboxLastStatus = 0;
     self.labelRGBValue[0] = 255.0;
     self.labelRGBValue[1] = 255.0;
     self.labelRGBValue[2] = 255.0;
@@ -113,6 +117,9 @@ void init() {
     self.labelRGB[2] -> enabled = TT_ELEMENT_HIDE;
     self.renameLabelTextbox = textboxInit("Rename Label", 32, self.imageX + self.textureScaleX + 160, self.imageY + self.textureScaleY, 10, 100);
     self.renameLabelTextbox -> enabled = TT_ELEMENT_HIDE;
+    self.deleteLabelButtonVar = 0;
+    self.deleteLabelButton = buttonInit("Delete Label", &self.deleteLabelButtonVar, self.imageX + self.textureScaleX + 210, self.imageY + self.textureScaleY - 100, 10);
+    self.deleteLabelButton -> enabled = TT_ELEMENT_HIDE;
 
     list_t *canvasContextOptions = list_init();
     list_append(canvasContextOptions, (unitype) "delete", 's');
@@ -124,49 +131,35 @@ void init() {
     self.movingSelection = -1;
     self.resizingSelection = -1;
     self.resizingDirection = -1;
-    double labelColorsCopy[] = {
-        255, 255, 255,
-        255, 0, 0,
-        0, 255, 0,
-        0, 0, 255,
-        0, 255, 255,
-        255, 0, 255,
-        255, 255, 0,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-        255, 255, 255,
-    };
-    memcpy(self.labelColors, labelColorsCopy, sizeof(labelColorsCopy));
+    self.labelColors = list_init();
+    /* null */
+    list_append(self.labelColors, (unitype) 255.0, 'd');
+    list_append(self.labelColors, (unitype) 255.0, 'd');
+    list_append(self.labelColors, (unitype) 255.0, 'd');
+    /* red */
+    list_append(self.labelColors, (unitype) 255.0, 'd');
+    list_append(self.labelColors, (unitype) 0.0, 'd');
+    list_append(self.labelColors, (unitype) 0.0, 'd');
+    /* green */
+    list_append(self.labelColors, (unitype) 0.0, 'd');
+    list_append(self.labelColors, (unitype) 255.0, 'd');
+    list_append(self.labelColors, (unitype) 0.0, 'd');
+    /* blue */
+    list_append(self.labelColors, (unitype) 0.0, 'd');
+    list_append(self.labelColors, (unitype) 0.0, 'd');
+    list_append(self.labelColors, (unitype) 255.0, 'd');
+    /* cyan */
+    list_append(self.labelColors, (unitype) 0.0, 'd');
+    list_append(self.labelColors, (unitype) 255.0, 'd');
+    list_append(self.labelColors, (unitype) 255.0, 'd');
+    /* magenta */
+    list_append(self.labelColors, (unitype) 255.0, 'd');
+    list_append(self.labelColors, (unitype) 0.0, 'd');
+    list_append(self.labelColors, (unitype) 255.0, 'd');
+    /* yellow */
+    list_append(self.labelColors, (unitype) 255.0, 'd');
+    list_append(self.labelColors, (unitype) 255.0, 'd');
+    list_append(self.labelColors, (unitype) 0.0, 'd');
     self.currentLabel = 0;
 }
 
@@ -228,6 +221,14 @@ void updateLabelFile() {
     fclose(labelfp);
 }
 
+void setCurrentLabel(int32_t value) {
+    self.currentLabel = value;
+    self.labelRGBValue[0] = self.labelColors -> data[self.currentLabel * 3].d;
+    self.labelRGBValue[1] = self.labelColors -> data[self.currentLabel * 3 + 1].d;
+    self.labelRGBValue[2] = self.labelColors -> data[self.currentLabel * 3 + 2].d;
+    strcpy(self.renameLabelTextbox -> text, self.labelNames -> data[self.currentLabel].s);
+}
+
 void render() {
     /* change button position and label */
     int32_t previousImageIndex = self.imageIndex - 1;
@@ -271,19 +272,20 @@ void render() {
     } else {
         self.keys[IMAGE_KEYS_RIGHT] = 0;
     }
-    if (self.newLabelButtonVar || (turtleKeyPressed(GLFW_KEY_ENTER) && self.newLabelTextbox -> status > 0)) {
-        printf("test\n");
+    if (self.newLabelButtonVar || (turtleKeyPressed(GLFW_KEY_ENTER) && self.newLabelTextboxLastStatus > 0)) {
         if (strlen(self.newLabelTextbox -> text) > 0) {
             list_append(self.labelNames, (unitype) self.newLabelTextbox -> text, 's');
+            if (self.labelNames -> length < self.labelNames -> length * 3) {
+                list_append(self.labelColors, (unitype) 255.0, 'd');
+                list_append(self.labelColors, (unitype) 255.0, 'd');
+                list_append(self.labelColors, (unitype) 255.0, 'd');
+            }
             self.newLabelTextbox -> text[0] = '\0';
-            self.currentLabel = self.labelNames -> length - 1;
-            self.labelRGBValue[0] = self.labelColors[self.currentLabel * 3];
-            self.labelRGBValue[1] = self.labelColors[self.currentLabel * 3 + 1];
-            self.labelRGBValue[2] = self.labelColors[self.currentLabel * 3 + 2];
-            strcpy(self.renameLabelTextbox -> text, self.labelNames -> data[self.currentLabel].s);
+            setCurrentLabel(self.labelNames -> length - 1);
         }
         self.newLabelButtonVar = 0;
     }
+    self.newLabelTextboxLastStatus = self.newLabelTextbox -> status;
     /* render image */
     turtleTexture(self.imageIndex, self.imageX - self.textureScaleX, self.imageY - self.textureScaleY, self.imageX + self.textureScaleX, self.imageY + self.textureScaleY, 0, 255, 255, 255);
     /* render all selections */
@@ -291,7 +293,7 @@ void render() {
     int32_t canvasLabelResize = -1;
     list_t *selections = self.labels -> data[self.imageIndex].r; // all selections for this image
     for (int32_t i = 0; i < selections -> length; i += 5) {
-        turtlePenColor(self.labelColors[selections -> data[i].i * 3], self.labelColors[selections -> data[i].i * 3 + 1], self.labelColors[selections -> data[i].i * 3 + 2]);
+        turtlePenColor(self.labelColors -> data[selections -> data[i].i * 3].d, self.labelColors -> data[selections -> data[i].i * 3 + 1].d, self.labelColors -> data[selections -> data[i].i * 3 + 2].d);
         turtlePenSize(1);
         double centerX = (selections -> data[i + 1].d / self.imageData -> data[self.imageIndex * 2].i * 2 - 1) * self.textureScaleX + self.imageX;
         double centerY = (selections -> data[i + 2].d / self.imageData -> data[self.imageIndex * 2 + 1].i * 2 - 1) * self.textureScaleY + self.imageY;
@@ -356,27 +358,48 @@ void render() {
     for (int32_t i = 1; i < self.labelNames -> length; i++) {
         double xpos = self.imageX + self.textureScaleX + 20;
         double ypos = self.imageY + self.textureScaleY - 13 * i - 28;
-        if (turtle.mouseX >= xpos - 5 && turtle.mouseX <= xpos + 50 && turtle.mouseY >= ypos - 6.3 && turtle.mouseY <= ypos + 6.3) {
-            turtlePenColor(self.labelColors[i * 3] * 0.8, self.labelColors[i * 3 + 1] * 0.8, self.labelColors[i * 3 + 2] * 0.8);
+        if (turtle.mouseX >= xpos - 5 && turtle.mouseX <= xpos + 110 && turtle.mouseY >= ypos - 6.3 && turtle.mouseY <= ypos + 6.3) {
+            turtlePenColor(self.labelColors -> data[i * 3].d * 0.8, self.labelColors -> data[i * 3 + 1].d * 0.8, self.labelColors -> data[i * 3 + 2].d * 0.8);
             turtleTextWriteUnicode((unsigned char *) self.labelNames -> data[i].s, xpos, ypos, 12, 0);
             labelHovering = i;
         } else {
-            turtlePenColor(self.labelColors[i * 3], self.labelColors[i * 3 + 1], self.labelColors[i * 3 + 2]);
+            turtlePenColor(self.labelColors -> data[i * 3].d, self.labelColors -> data[i * 3 + 1].d, self.labelColors -> data[i * 3 + 2].d);
             turtleTextWriteUnicode((unsigned char *) self.labelNames -> data[i].s, xpos, ypos, 10, 0);
         }
     }
     if (self.currentLabel > 0) {
-        turtlePenColor(self.labelColors[self.currentLabel * 3], self.labelColors[self.currentLabel * 3 + 1], self.labelColors[self.currentLabel * 3 + 2]);
+        tt_setColor(TT_COLOR_TEXT);
+        turtleRectangle(self.imageX + self.textureScaleX + 210 - 80, -180, self.imageX + self.textureScaleX + 210 + 80, 180);
+        turtlePenColor(self.labelColors -> data[self.currentLabel * 3].d, self.labelColors -> data[self.currentLabel * 3 + 1].d, self.labelColors -> data[self.currentLabel * 3 + 2].d);
         turtleTextWriteString(">", self.imageX + self.textureScaleX + 6.7, self.imageY + self.textureScaleY - 13 * self.currentLabel - 28, 10, 0);
         /* render label editing UI */
         self.labelRGB[0] -> enabled = TT_ELEMENT_ENABLED;
         self.labelRGB[1] -> enabled = TT_ELEMENT_ENABLED;
         self.labelRGB[2] -> enabled = TT_ELEMENT_ENABLED;
         self.renameLabelTextbox -> enabled = TT_ELEMENT_ENABLED;
-        self.labelColors[self.currentLabel * 3] = self.labelRGBValue[0];
-        self.labelColors[self.currentLabel * 3 + 1] = self.labelRGBValue[1];
-        self.labelColors[self.currentLabel * 3 + 2] = self.labelRGBValue[2];
+        self.deleteLabelButton -> enabled = TT_ELEMENT_ENABLED;
+        self.labelColors -> data[self.currentLabel * 3].d = self.labelRGBValue[0];
+        self.labelColors -> data[self.currentLabel * 3 + 1].d = self.labelRGBValue[1];
+        self.labelColors -> data[self.currentLabel * 3 + 2].d = self.labelRGBValue[2];
         strcpy(self.labelNames -> data[self.currentLabel].s, self.renameLabelTextbox -> text);
+        char deleteButtonStr[128] = "Delete ";
+        strcat(deleteButtonStr, self.labelNames -> data[self.currentLabel].s);
+        strcpy(self.deleteLabelButton -> label, deleteButtonStr);
+        if (self.deleteLabelButtonVar) {
+            /* delete label */
+            list_delete(self.labelNames, self.currentLabel);
+            list_delete(self.labelColors, self.currentLabel * 3);
+            list_delete(self.labelColors, self.currentLabel * 3);
+            list_delete(self.labelColors, self.currentLabel * 3);
+            setCurrentLabel(self.currentLabel - 1);
+            self.deleteLabelButtonVar = 0;
+        }
+    } else {
+        self.labelRGB[0] -> enabled = TT_ELEMENT_HIDE;
+        self.labelRGB[1] -> enabled = TT_ELEMENT_HIDE;
+        self.labelRGB[2] -> enabled = TT_ELEMENT_HIDE;
+        self.renameLabelTextbox -> enabled = TT_ELEMENT_HIDE;
+        self.deleteLabelButton -> enabled = TT_ELEMENT_HIDE;
     }
     /* mouse functions */
     if (canvasLabelHover == -1) {
@@ -434,11 +457,7 @@ void render() {
             }
             if (labelHovering > 0) {
                 /* switch currentLabel */
-                self.currentLabel = labelHovering;
-                self.labelRGBValue[0] = self.labelColors[self.currentLabel * 3];
-                self.labelRGBValue[1] = self.labelColors[self.currentLabel * 3 + 1];
-                self.labelRGBValue[2] = self.labelColors[self.currentLabel * 3 + 2];
-                strcpy(self.renameLabelTextbox -> text, self.labelNames -> data[self.currentLabel].s);
+                setCurrentLabel(labelHovering);
             }
         }
     } else {
@@ -496,7 +515,7 @@ void render() {
                 self.selectEndY = self.imageY + self.textureScaleY;
             }
         }
-        turtlePenColor(self.labelColors[self.currentLabel * 3], self.labelColors[self.currentLabel * 3 + 1], self.labelColors[self.currentLabel * 3 + 2]);
+        turtlePenColor(self.labelColors -> data[self.currentLabel * 3].d, self.labelColors -> data[self.currentLabel * 3 + 1].d, self.labelColors -> data[self.currentLabel * 3 + 2].d);
         turtlePenSize(1);
         turtleGoto(self.selectAnchorX, self.selectAnchorY);
         turtlePenDown();
@@ -716,7 +735,7 @@ int main(int argc, char *argv[]) {
         turtleGetMouseCoords();
         turtleClear();
         render();
-        tt_setColor(TT_COLOR_TEXT);
+        tt_setColor(TT_COLOR_SLIDER_BAR);
         if (self.labelRGB[0] -> enabled != TT_ELEMENT_HIDE) {
             turtleTextWriteString("Red", self.labelRGB[0] -> x - self.labelRGB[0] -> length / 2 - self.labelRGB[0] -> size, self.labelRGB[0] -> y, self.labelRGB[0] -> size - 1, 100);
             turtleTextWriteStringf(self.labelRGB[0] -> x + self.labelRGB[0] -> length / 2 + self.labelRGB[0] -> size, self.labelRGB[0] -> y, 4, 0, "%d", (int32_t) round(self.labelRGBValue[0]));

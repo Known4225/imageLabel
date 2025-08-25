@@ -435,7 +435,7 @@ void scrollbarFree(tt_scrollbar_t *scrollbarp);
 
 void contextCalculateMax(tt_context_t *contextp);
 
-tt_context_t *contextInit();
+tt_context_t *contextInit(list_t *options, int32_t *variable, double x, double y, double size);
 
 void contextFree(tt_context_t *contextp);
 

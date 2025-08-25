@@ -976,7 +976,7 @@ void scrollbarFree(tt_scrollbar_t *scrollbarp);
 
 void contextCalculateMax(tt_context_t *contextp);
 
-tt_context_t *contextInit();
+tt_context_t *contextInit(list_t *options, int32_t *variable, double x, double y, double size);
 
 void contextFree(tt_context_t *contextp);
 
@@ -13234,7 +13234,7 @@ void buttonUpdate() {
         }
         double buttonX = buttonp -> x;
         double buttonY = buttonp -> y;
-        double buttonWidth = turtleTextGetUnicodeLength((unsigned char *) buttonp -> label, buttonp -> size) * 1.1;
+        double buttonWidth = turtleTextGetUnicodeLength((unsigned char *) buttonp -> label, buttonp -> size - 1) + buttonp -> size * 0.8;
         double buttonHeight = buttonp -> size * 1.75;
         if (buttonp -> status > 0) {
             tt_internalColor(buttonp, TT_COLOR_BUTTON_CLICKED, TT_COLOR_OVERRIDE_SLOT_4);
@@ -15366,7 +15366,7 @@ int32_t osToolsUnmapFile(uint8_t *data) {
 #endif
 
 /* created using https://notisrac.github.io/FileToCArray (32 bit RGBA) */
-const uint32_t moveCursorData[] = {
+const uint32_t moveCursorData[1024] = {
     0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xff000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 
     0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xff000000, 0xffffffff, 0xff000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 
     0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xff000000, 0xffffffff, 0xffffffff, 0xffffffff, 0xff000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 
