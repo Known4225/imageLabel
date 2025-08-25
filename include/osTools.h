@@ -67,6 +67,9 @@ GLFW_CROSSHAIR_CURSOR
 GLFW_HAND_CURSOR
 GLFW_HRESIZE_CURSOR
 GLFW_VRESIZE_CURSOR
+GLFW_DLESIZE_CURSOR
+GLFW_DRESIZE_CURSOR
+GLFW_MOVE_CURSOR
 */
 void osToolsSetCursor(uint32_t cursor);
 
@@ -160,5 +163,20 @@ int32_t osToolsFileDialogPrompt(char openOrSave, char *prename);
 uint8_t *osToolsMapFile(char *filename, uint32_t *sizeOutput);
 
 int32_t osToolsUnmapFile(uint8_t *data);
+
+/* lists files in a directory (does NOT list folders), format [name, size, name, size, ...] */
+list_t *osToolsListFiles(char *directory);
+
+/* non-recursive, lists folders in a directory, format [name, name, ...] */
+list_t *osToolsListFolders(char *directory);
+
+/* lists files and folders in a directory, format [name, size, name, size, ...] (size is -1 for folders) */
+list_t *osToolsListFilesAndFolders(char *directory);
+
+/* create a folder */
+void osToolsCreateFolder(char *folder);
+
+/* delete a folder (and all files and subfolders) */
+void osToolsDeleteFolder(char *folder);
 
 #endif /* OS_TOOLS_H */

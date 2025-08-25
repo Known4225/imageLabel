@@ -1098,6 +1098,9 @@ GLFW_CROSSHAIR_CURSOR
 GLFW_HAND_CURSOR
 GLFW_HRESIZE_CURSOR
 GLFW_VRESIZE_CURSOR
+GLFW_DLESIZE_CURSOR
+GLFW_DRESIZE_CURSOR
+GLFW_MOVE_CURSOR
 */
 void osToolsSetCursor(uint32_t cursor);
 
@@ -1191,6 +1194,21 @@ int32_t osToolsFileDialogPrompt(char openOrSave, char *prename);
 uint8_t *osToolsMapFile(char *filename, uint32_t *sizeOutput);
 
 int32_t osToolsUnmapFile(uint8_t *data);
+
+/* lists files in a directory (does NOT list folders), format [name, size, name, size, ...] */
+list_t *osToolsListFiles(char *directory);
+
+/* non-recursive, lists folders in a directory, format [name, name, ...] */
+list_t *osToolsListFolders(char *directory);
+
+/* lists files and folders in a directory, format [name, size, name, size, ...] (size is -1 for folders) */
+list_t *osToolsListFilesAndFolders(char *directory);
+
+/* create a folder */
+void osToolsCreateFolder(char *folder);
+
+/* delete a folder (and all files and subfolders) */
+void osToolsDeleteFolder(char *folder);
 
 #endif /* OS_TOOLS_H */
 
@@ -14920,6 +14938,116 @@ int32_t osToolsUnmapFile(uint8_t *data) {
         printf("Could not find %p in memory mapped index\n", data);
         return -1;
     }
+}
+
+list_t *osToolsListFilesAndFolders(char *directory) {
+    /* https://learn.microsoft.com/en-us/windows/win32/fileio/listing-the-files-in-a-directory */
+    list_t *output = list_init();
+    if (strlen(directory) > MAX_PATH - 3) {
+        printf("osToolsListFiles: Directory name too long\n");
+        return output;
+    }
+    char directoryFor[MAX_PATH];
+    strcpy(directoryFor, directory);
+    strcat(directoryFor, "\\*");
+    WIN32_FIND_DATA findData;
+    HANDLE fileHandle = FindFirstFile(directoryFor, &findData);
+    if (fileHandle == INVALID_HANDLE_VALUE) {
+        printf("osToolsListFiles: Handle invalid error %ld\n", GetLastError());
+        return output;
+    }
+    LARGE_INTEGER filesize;
+    do {
+        if (strcmp(findData.cFileName, ".") == 0 || strcmp(findData.cFileName, "..") == 0) {
+            continue;
+        }
+        list_append(output, (unitype) findData.cFileName, 's'); // add filename
+        if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            /* directory */
+            list_append(output, (unitype) (int64_t) -1, LIST_TYPE_INT64);
+        } else {
+            filesize.LowPart = findData.nFileSizeLow;
+            filesize.HighPart = findData.nFileSizeHigh;
+            list_append(output, (unitype) (int64_t) filesize.QuadPart, LIST_TYPE_INT64);
+        }
+    } while (FindNextFile(fileHandle, &findData) != 0);
+    return output;
+}
+
+list_t *osToolsListFiles(char *directory) {
+    /* https://learn.microsoft.com/en-us/windows/win32/fileio/listing-the-files-in-a-directory */
+    list_t *output = list_init();
+    if (strlen(directory) > MAX_PATH - 3) {
+        printf("osToolsListFiles: Directory name too long\n");
+        return output;
+    }
+    char directoryFor[MAX_PATH];
+    strcpy(directoryFor, directory);
+    strcat(directoryFor, "\\*");
+    WIN32_FIND_DATA findData;
+    HANDLE fileHandle = FindFirstFile(directoryFor, &findData);
+    if (fileHandle == INVALID_HANDLE_VALUE) {
+        printf("osToolsListFiles: Handle invalid error %ld\n", GetLastError());
+        return output;
+    }
+    LARGE_INTEGER filesize;
+    do {
+        if (!(findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+            filesize.LowPart = findData.nFileSizeLow;
+            filesize.HighPart = findData.nFileSizeHigh;
+            list_append(output, (unitype) findData.cFileName, 's'); // add filename
+            list_append(output, (unitype) (int64_t) filesize.QuadPart, LIST_TYPE_INT64);
+        }
+    } while (FindNextFile(fileHandle, &findData) != 0);
+    return output;
+}
+
+list_t *osToolsListFolders(char *directory) {
+    /* https://learn.microsoft.com/en-us/windows/win32/fileio/listing-the-files-in-a-directory */
+    list_t *output = list_init();
+    if (strlen(directory) > MAX_PATH - 3) {
+        printf("osToolsListFiles: Directory name too long\n");
+        return output;
+    }
+    char directoryFor[MAX_PATH];
+    strcpy(directoryFor, directory);
+    strcat(directoryFor, "\\*");
+    WIN32_FIND_DATA findData;
+    HANDLE fileHandle = FindFirstFile(directoryFor, &findData);
+    if (fileHandle == INVALID_HANDLE_VALUE) {
+        printf("osToolsListFiles: Handle invalid error %ld\n", GetLastError());
+        return output;
+    }
+    do {
+        if (strcmp(findData.cFileName, ".") == 0 || strcmp(findData.cFileName, "..") == 0) {
+            continue;
+        }
+        if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            /* directory */
+            list_append(output, (unitype) findData.cFileName, 's'); // add filename
+        }
+    } while (FindNextFile(fileHandle, &findData) != 0);
+    return output;
+}
+
+void osToolsCreateFolder(char *folder) {
+    /* https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createdirectory */
+    CreateDirectory(folder, NULL);
+}
+
+void osToolsDeleteFolder(char *folder) {
+    /* https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-removedirectorya */
+    char directoryFor[MAX_PATH + 10] = "rd /s /q ";
+    int32_t len = strlen(folder);
+    for (int32_t i = 0; i < len; i++) {
+        if (folder[i] == '/') {
+            folder[i] = '\\';
+        }
+    }
+    strcat(directoryFor, folder);
+    printf("%s\n", directoryFor);
+    system(directoryFor);
+    // RemoveDirectoryA(folder);
 }
 
 /*

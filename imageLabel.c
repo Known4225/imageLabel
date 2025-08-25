@@ -661,6 +661,25 @@ void render() {
     // list_print(selections);
 }
 
+/* import labels from a single file (autosave file format) */
+void importLabels(char *filename) {
+    
+}
+
+/* export labels to labels/ folder using the YOLO format */
+void exportLabels() {
+    list_t *folders = osToolsListFolders(".");
+    if (list_count(folders, (unitype) "labels", 's') < 1) {
+        /* create labels folder */
+        osToolsCreateFolder("./labels");
+    } else {
+        /* delete all files in labels */
+        osToolsDeleteFolder("./labels");
+        osToolsCreateFolder("./labels");
+    }
+    
+}
+
 void parseRibbonOutput() {
     if (ribbonRender.output[0] == 0) {
         return;
@@ -670,24 +689,14 @@ void parseRibbonOutput() {
         if (ribbonRender.output[2] == 1) { // New
             printf("New\n");
         }
-        if (ribbonRender.output[2] == 2) { // Save
-            if (strcmp(osToolsFileDialog.selectedFilename, "null") == 0) {
-                if (osToolsFileDialogPrompt(1, "") != -1) {
-                    printf("Saved to: %s\n", osToolsFileDialog.selectedFilename);
-                }
-            } else {
-                printf("Saved to: %s\n", osToolsFileDialog.selectedFilename);
-            }
-        }
-        if (ribbonRender.output[2] == 3) { // Save As...
+        if (ribbonRender.output[2] == 2) { // Import
             if (osToolsFileDialogPrompt(1, "") != -1) {
+                importLabels(osToolsFileDialog.selectedFilename);
                 printf("Saved to: %s\n", osToolsFileDialog.selectedFilename);
             }
         }
-        if (ribbonRender.output[2] == 4) { // Open
-            if (osToolsFileDialogPrompt(0, "") != -1) {
-                printf("Loaded data from: %s\n", osToolsFileDialog.selectedFilename);
-            }
+        if (ribbonRender.output[2] == 3) { // Export
+            exportLabels();
         }
     }
     if (ribbonRender.output[1] == 1) { // Edit
@@ -745,16 +754,6 @@ void parsePopupOutput(GLFWwindow *window) {
     if (popup.output[1] == 1) { // close
         turtle.popupClose = 1;
     }
-}
-
-/* import labels from a single file (autosave file format) */
-void importLabels() {
-
-}
-
-/* export labels to labels/ folder using the YOLO format */
-void exportLabels() {
-    
 }
 
 int main(int argc, char *argv[]) {
