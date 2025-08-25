@@ -766,13 +766,14 @@ void parseRibbonOutput() {
             printf("New\n");
         }
         if (ribbonRender.output[2] == 2) { // Import
-            if (osToolsFileDialogPrompt(1, "") != -1) {
+            if (osToolsFileDialogPrompt(0, "") != -1) {
                 importLabels(osToolsFileDialog.selectedFilename);
                 printf("Imported labels from: %s\n", osToolsFileDialog.selectedFilename);
             }
         }
         if (ribbonRender.output[2] == 3) { // Export
             exportLabels();
+            printf("Exported labels to labels/\n");
         }
     }
     if (ribbonRender.output[1] == 1) { // Edit
