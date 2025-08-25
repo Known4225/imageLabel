@@ -170,33 +170,32 @@ void textureInit(const char *filepath) {
     https://stackoverflow.com/questions/75976623/how-to-use-gl-texture-2d-array-for-binding-multiple-textures-as-array
     https://stackoverflow.com/questions/72648980/opengl-sampler2d-array
     */
-    int pathLen = strlen(filepath) + 32;
+    list_t *files = osToolsListFiles((char *) filepath);
+    int pathLen = strlen(filepath) + 256;
     char filename[pathLen];
     /* setup texture parameters */
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     
     unsigned int texturePower[128];
     glGenTextures(25, texturePower);
-    for (int i = 0; i < 128; i++) {
+    for (int i = 0; i < files -> length / 2 + 1; i++) {
         glBindTexture(GL_TEXTURE_2D, texturePower[i]);
     }
     /* each of our images are 640 by 640 */
-    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 640, 640, 128, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 640, 640, files -> length / 2 + 1, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
     int width;
     int height;
     int nbChannels;
     unsigned char *imgData;
     /* load all textures */
-    for (int i = 0; i < 105; i++) {
+    for (int i = 0; i < files -> length / 2; i++) {
         strcpy(filename, filepath);
-        char exactName[32];
-        sprintf(exactName, "image%d.jpg", i);
-        strcat(filename, exactName);
+        strcat(filename, files -> data[i * 2].s);
         imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
         if (imgData != NULL) {
             glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, self.imageNames -> length, width, height, 1, GL_RGB, GL_UNSIGNED_BYTE, imgData);
-            list_append(self.imageNames, (unitype) exactName, 's');
+            list_append(self.imageNames, files -> data[i * 2], 's');
             list_append(self.imageData, (unitype) width, 'i');
             list_append(self.imageData, (unitype) height, 'i');
             list_append(self.labels, (unitype) list_init(), 'r');
@@ -663,7 +662,65 @@ void render() {
 
 /* import labels from a single file (autosave file format) */
 void importLabels(char *filename) {
-    
+    FILE *fp = fopen(filename, "r");
+    char line[1024];
+    int32_t iter = 0;
+    int32_t discoveredIndex = -1;
+    while (fgets(line, 1024, fp) != NULL) {
+        if (iter == 0) {
+            char checkHold[20] = {0};
+            memcpy(checkHold, line, 14);
+            if (strcmp(checkHold, "/* labels for ")) {
+                printf("importLabels: File %s in wrong format\n", filename);
+                return;
+            }
+        }
+        char checkHold[20] = {0};
+        memcpy(checkHold, line, 14);
+        if (strcmp(checkHold, "/* labels for ") == 0) {
+            /* parse image name */
+            char parsedImageName[256];
+            int32_t lineLength = strlen(line);
+            if (lineLength > 256 + 13) {
+                printf("importLabels: Line %d too long\n", iter);
+            }
+            memcpy(parsedImageName, line + 14, lineLength - 13);
+            if (strlen(parsedImageName) < 4) {
+                printf("importLabels: Parsing error on line %d\n", iter + 1);
+                return;
+            }
+            parsedImageName[strlen(parsedImageName) - 4] = '\0';
+            // printf("%s\n", parsedImageName);
+            /* find parsedImageName in imageNames list */
+            discoveredIndex = -1;
+            for (int32_t j = 0; j < self.imageNames -> length; j++) {
+                if (strcmp(self.imageNames -> data[j].s, parsedImageName) == 0) {
+                    discoveredIndex = j;
+                    break;
+                }
+            }
+            if (discoveredIndex == -1) {
+                printf("importLabels: Could not find image %s\n", parsedImageName);
+                return;
+            }
+        } else {
+            if (discoveredIndex == -1) {
+                printf("importLabels: No header error on line %d\n", iter + 1);
+                return;
+            }
+            /* assume data entry */
+            int32_t class;
+            double centerX, centerY, width, height;
+            sscanf(line, "%d %lf %lf %lf %lf\n", &class, &centerX, &centerY, &width, &height);
+            list_append(self.labels -> data[discoveredIndex].r, (unitype) class, 'i');
+            list_append(self.labels -> data[discoveredIndex].r, (unitype) centerX, 'd');
+            list_append(self.labels -> data[discoveredIndex].r, (unitype) centerY, 'd');
+            list_append(self.labels -> data[discoveredIndex].r, (unitype) width, 'd');
+            list_append(self.labels -> data[discoveredIndex].r, (unitype) height, 'd');
+        }
+        iter++;
+    }
+    fclose(fp);
 }
 
 /* export labels to labels/ folder using the YOLO format */
@@ -677,7 +734,26 @@ void exportLabels() {
         osToolsDeleteFolder("./labels");
         osToolsCreateFolder("./labels");
     }
-    
+    /* populate folder with labels */
+    for (int32_t i = 1; i < self.imageNames -> length; i++) {
+        /* remove file extension */
+        char name[strlen(self.imageNames -> data[i].s) + 5 + 10];
+        strcpy(name, "./labels/");
+        strcat(name, self.imageNames -> data[i].s);
+        for (int32_t j = strlen(self.imageNames -> data[i].s) + 8; j > 8; j--) {
+            if (name[j] == '.') {
+                name[j] = '\0';
+                break;
+            }
+        }
+        strcat(name, ".txt");
+        FILE *fp = fopen(name, "w");
+        list_t *selections = self.labels -> data[i].r;
+        for (int32_t j = 0; j < selections -> length; j += 5) {
+            fprintf(fp, "%d %d %d %d %d\n", selections -> data[j].i, (int32_t) selections -> data[j + 1].d, (int32_t) selections -> data[j + 2].d, (int32_t) selections -> data[j + 3].d, (int32_t) selections -> data[j + 4].d);
+        }
+        fclose(fp);
+    }
 }
 
 void parseRibbonOutput() {
@@ -692,7 +768,7 @@ void parseRibbonOutput() {
         if (ribbonRender.output[2] == 2) { // Import
             if (osToolsFileDialogPrompt(1, "") != -1) {
                 importLabels(osToolsFileDialog.selectedFilename);
-                printf("Saved to: %s\n", osToolsFileDialog.selectedFilename);
+                printf("Imported labels from: %s\n", osToolsFileDialog.selectedFilename);
             }
         }
         if (ribbonRender.output[2] == 3) { // Export
@@ -766,7 +842,7 @@ int main(int argc, char *argv[]) {
     /* Create a windowed mode window and its OpenGL context */
     const GLFWvidmode *monitorSize = glfwGetVideoMode(glfwGetPrimaryMonitor());
     int32_t windowHeight = monitorSize -> height;
-    GLFWwindow *window = glfwCreateWindow(windowHeight * 16 / 9, windowHeight, "turtle demo", NULL, NULL);
+    GLFWwindow *window = glfwCreateWindow(windowHeight * 16 / 9, windowHeight, "Image Label", NULL, NULL);
     if (!window) {
         glfwTerminate();
         return -1;

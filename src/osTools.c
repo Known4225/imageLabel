@@ -610,6 +610,8 @@ list_t *osToolsListFiles(char *directory) {
             list_append(output, (unitype) (int64_t) filesize.QuadPart, LIST_TYPE_INT64);
         }
     } while (FindNextFile(fileHandle, &findData) != 0);
+    /* sort list https://stackoverflow.com/questions/39048747/how-in-the-world-does-windows-file-explorer-sort-by-name 
+    I'm actually just not going to sort them */
     return output;
 }
 
