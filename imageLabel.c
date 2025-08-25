@@ -7,9 +7,9 @@
 
 /*
 TODO:
-There's a rare and unpredictable bug that causes crashes, overwriting of labelNames when editing the one below it, and also sometimes crashes on context menu?
-resize and delete label (on canvas)
+save and load label files
 export dataset
+import arbitrary image files
 
 train model? no.
 */
@@ -118,7 +118,7 @@ void init() {
     self.renameLabelTextbox = textboxInit("Rename Label", 32, self.imageX + self.textureScaleX + 160, self.imageY + self.textureScaleY, 10, 100);
     self.renameLabelTextbox -> enabled = TT_ELEMENT_HIDE;
     self.deleteLabelButtonVar = 0;
-    self.deleteLabelButton = buttonInit("Delete Label", &self.deleteLabelButtonVar, self.imageX + self.textureScaleX + 210, self.imageY + self.textureScaleY - 100, 10);
+    self.deleteLabelButton = buttonInit("Delete Label", &self.deleteLabelButtonVar, self.imageX + self.textureScaleX + 210, self.imageY + self.textureScaleY - 60, 10);
     self.deleteLabelButton -> enabled = TT_ELEMENT_HIDE;
 
     list_t *canvasContextOptions = list_init();
@@ -208,6 +208,7 @@ void textureInit(const char *filepath) {
     glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
 }
 
+/* update autosave file */
 void updateLabelFile() {
     FILE *labelfp = fopen(self.labelFilename, "w");
     for (int32_t i = 1; i < self.labels -> length; i++) {
@@ -222,6 +223,7 @@ void updateLabelFile() {
     fclose(labelfp);
 }
 
+/* set currently selected label and load associated values */
 void setCurrentLabel(int32_t value) {
     self.currentLabel = value;
     self.labelRGBValue[0] = self.labelColors -> data[self.currentLabel * 3].d;
@@ -233,6 +235,7 @@ void setCurrentLabel(int32_t value) {
     strcpy(self.deleteLabelButton -> label, deleteButtonStr);
 }
 
+/* render loop */
 void render() {
     /* change button position and label */
     int32_t previousImageIndex = self.imageIndex - 1;
@@ -397,7 +400,7 @@ void render() {
             list_delete(self.labelColors, self.currentLabel * 3);
             list_delete(self.labelColors, self.currentLabel * 3);
             list_delete(self.labelColors, self.currentLabel * 3);
-            setCurrentLabel(self.currentLabel - 1);
+            setCurrentLabel(0);
             self.deleteLabelButtonVar = 0;
         }
     } else {
@@ -742,6 +745,16 @@ void parsePopupOutput(GLFWwindow *window) {
     if (popup.output[1] == 1) { // close
         turtle.popupClose = 1;
     }
+}
+
+/* import labels from a single file (autosave file format) */
+void importLabels() {
+
+}
+
+/* export labels to labels/ folder using the YOLO format */
+void exportLabels() {
+    
 }
 
 int main(int argc, char *argv[]) {
