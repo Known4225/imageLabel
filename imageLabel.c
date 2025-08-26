@@ -1015,14 +1015,18 @@ int main(int argc, char *argv[]) {
     turtleTextInit(constructedFilepath);
     /* initialise turtleTools ribbon */
     turtleBgColor(30, 30, 30);
-    turtleToolsSetTheme(TT_THEME_DARK); // dark theme preset
-    strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
-    strcat(constructedFilepath, "config/ribbonConfig.txt");
-    ribbonInit(constructedFilepath);
+    turtleToolsSetTheme(TT_THEME_DARK);
+    list_t *ribbonConfig = list_init();
+    list_append(ribbonConfig, (unitype) "File, Import Images, Import lbl, Save lbl, Import Label Folder, Export Label Folder", 's');
+    list_append(ribbonConfig, (unitype) "Edit, Undo, Redo, Cut, Copy, Paste", 's');
+    list_append(ribbonConfig, (unitype) "View, Change Theme, GLFW", 's');
+    ribbonInitList(ribbonConfig);
     /* initialise turtleTools popup */
-    strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
-    strcat(constructedFilepath, "config/popupConfig.txt");
-    popupInit(constructedFilepath, -60, -20, 60, 20);
+    list_t *popupConfig = list_init();
+    list_append(popupConfig, (unitype) "Are you sure you want to close?", 's');
+    list_append(popupConfig, (unitype) "Cancel", 's');
+    list_append(popupConfig, (unitype) "Close", 's');
+    popupInitList(popupConfig, -60, -20, 60, 20);
 
     init();
     /* load default dataset under dataset/ */

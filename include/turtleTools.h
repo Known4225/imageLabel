@@ -139,6 +139,12 @@ extern tt_ribbon_t ribbonRender;
 /* initialise ribbon */
 int32_t ribbonInit(const char *filename);
 
+/* initialise ribbon with a list instead of a config file - this function frees the list so you don't have to */
+int32_t ribbonInitList(list_t *config);
+
+/* internal */
+int32_t ribbonInitInternal(FILE *configFile, list_t *configList, int8_t fileExists);
+
 /* render ribbon */
 void ribbonUpdate();
 
@@ -167,11 +173,18 @@ typedef struct {
 extern tt_popup_t popup;
 
 /* initialise popup */
-int32_t popupInit(const char *filename, double minX, double minY, double maxX, double maxY);
+int32_t popupInit(char *filename, double minX, double minY, double maxX, double maxY);
+
+/* initialise popup with a list instead of a config file - this function frees the list so you don't have to */
+int32_t popupInitList(list_t *config, double minX, double minY, double maxX, double maxY);
+
+/* internal */
+int32_t popupInitInternal(FILE *configFile, list_t *configList, int8_t fileExists, double minX, double minY, double maxX, double maxY);
 
 /* render popup */
 void popupUpdate();
 
+/* free popup */
 void popupFree();
 
 /* UI tools */

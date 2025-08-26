@@ -261,6 +261,28 @@ tt_ribbon_t ribbonRender;
 
 /* initialise ribbon */
 int32_t ribbonInit(const char *filename) {
+    /* load from config file */
+    char fileExists = 1;
+    list_t *defaultRibbonFile = list_init();
+    list_append(defaultRibbonFile, (unitype) "File, New, Save, Save As..., Open", 's');
+    list_append(defaultRibbonFile, (unitype) "Edit, Undo, Redo, Cut, Copy, Paste", 's');
+    list_append(defaultRibbonFile, (unitype) "View, Change Theme, GLFW", 's');
+    FILE *configFile = fopen(filename, "r");
+    if (configFile == NULL) {
+        printf("Error: file %s not found\n", filename);
+        fileExists = 0;
+    }
+    return ribbonInitInternal(configFile, defaultRibbonFile, fileExists);
+}
+
+/* initialise ribbon with a list instead of a config file */
+int32_t ribbonInitList(list_t *config) {
+    /* load from config file */
+    return ribbonInitInternal(NULL, config, 0);
+}
+
+/* initialise ribbon */
+int32_t ribbonInitInternal(FILE *configFile, list_t *configList, int8_t fileExists) {
     /* enable ribbon */
     tt_enabled.ribbonEnabled = 1;
     if (tt_enabled.turtleToolsEnabled == 0) {
@@ -290,22 +312,11 @@ int32_t ribbonInit(const char *filename) {
     ribbonRender.options = list_init();
     ribbonRender.lengths = list_init();
 
-    /* load from config file */
-    char fileExists = 1;
-    list_t *defaultRibbonFile = list_init();
-    list_append(defaultRibbonFile, (unitype) "File, New, Save, Save As..., Open", 's');
-    list_append(defaultRibbonFile, (unitype) "Edit, Undo, Redo, Cut, Copy, Paste", 's');
-    list_append(defaultRibbonFile, (unitype) "View, Change Theme, GLFW", 's');
-    FILE *configFile = fopen(filename, "r");
-    if (configFile == NULL) {
-        printf("Error: file %s not found\n", filename);
-        fileExists = 0;
-    }
     /* load ribbon options */
     char line[1024]; // maximum size of any list of options
-    while ((fileExists == 0 && ribbonRender.options -> length < defaultRibbonFile -> length) || (fileExists == 1 && fgets(line, 1024, configFile) != NULL)) {
+    while ((fileExists == 0 && ribbonRender.options -> length < configList -> length) || (fileExists == 1 && fgets(line, 1024, configFile) != NULL)) {
         if (fileExists == 0) {
-            memcpy(line, defaultRibbonFile -> data[ribbonRender.options -> length].s, strlen(defaultRibbonFile -> data[ribbonRender.options -> length].s) + 1);
+            memcpy(line, configList -> data[ribbonRender.options -> length].s, strlen(configList -> data[ribbonRender.options -> length].s) + 1);
         }
         if (line[strlen(line) - 1] == '\n') {
             line[strlen(line) - 1] = '\0'; // cull newline
@@ -335,6 +346,7 @@ int32_t ribbonInit(const char *filename) {
         }
         list_append(ribbonRender.lengths, (unitype) max, 'd');
     }
+    list_free(configList);
     return 0;
 }
 
@@ -425,7 +437,28 @@ void ribbonUpdate() {
 tt_popup_t popup;
 
 /* initialise popup */
-int32_t popupInit(const char *filename, double minX, double minY, double maxX, double maxY) {
+int32_t popupInit(char *filename, double minX, double minY, double maxX, double maxY) {
+    /* read information from config file */
+    char fileExists = 1;
+    list_t *defaultPopupFile = list_init();
+    list_append(defaultPopupFile, (unitype) "Are you sure you want to close?", 's');
+    list_append(defaultPopupFile, (unitype) "Cancel", 's');
+    list_append(defaultPopupFile, (unitype) "Close", 's');
+    FILE *configFile = fopen(filename, "r");
+    if (configFile == NULL) {
+        printf("Error: file %s not found\n", filename);
+        fileExists = 0;
+    }
+    return popupInitInternal(configFile, defaultPopupFile, fileExists, minX, minY, maxX, maxY);
+}
+
+/* initialise popup with a list instead of a config file */
+int32_t popupInitList(list_t *config, double minX, double minY, double maxX, double maxY) {
+    return popupInitInternal(NULL, config, 0, minX, minY, maxX, maxY);
+}
+
+/* initialise popup */
+int32_t popupInitInternal(FILE *configFile, list_t *configList, int8_t fileExists, double minX, double minY, double maxX, double maxY) {
     tt_enabled.popupEnabled = 1;
     if (tt_enabled.turtleToolsEnabled == 0) {
         tt_enabled.turtleToolsEnabled = 1;
@@ -439,17 +472,7 @@ int32_t popupInit(const char *filename, double minX, double minY, double maxX, d
     popup.output[1] = -1;
     popup.mouseDown = 0;
     popup.style = 0;
-    /* read information from config file */
-    char fileExists = 1;
-    list_t *defaultPopupFile = list_init();
-    list_append(defaultPopupFile, (unitype) "Are you sure you want to close?", 's');
-    list_append(defaultPopupFile, (unitype) "Cancel", 's');
-    list_append(defaultPopupFile, (unitype) "Close", 's');
-    FILE *configFile = fopen(filename, "r");
-    if (configFile == NULL) {
-        printf("Error: file %s not found\n", filename);
-        fileExists = 0;
-    }
+
     char line[256] = {1, 0}; // maximum size of message or option
     /* read popup message */
     if (fileExists) {
@@ -460,21 +483,21 @@ int32_t popupInit(const char *filename, double minX, double minY, double maxX, d
             popup.message = strdup(line);
         }
     } else {
-        popup.message = strdup(defaultPopupFile -> data[0].s);
+        popup.message = strdup(configList -> data[0].s);
     }
     /* read popup options */
     popup.options = list_init();
-    while ((fileExists == 0 && popup.options -> length < defaultPopupFile -> length - 1) || (fileExists == 1 && fgets(line, 256, configFile) != NULL)) {
+    while ((fileExists == 0 && popup.options -> length < configList -> length - 1) || (fileExists == 1 && fgets(line, 256, configFile) != NULL)) {
         if (fileExists == 1) {
             if (line[strlen(line) - 1] == '\n') {
                 line[strlen(line) - 1] = '\0'; // cull newline
             }
             list_append(popup.options, (unitype) strdup(line), 's');
         } else {
-            list_append(popup.options, defaultPopupFile -> data[popup.options -> length + 1], 's');
+            list_append(popup.options, configList -> data[popup.options -> length + 1], 's');
         }
     }
-    list_free(defaultPopupFile);
+    list_free(configList);
     return 0;
 }
 
