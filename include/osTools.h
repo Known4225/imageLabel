@@ -35,10 +35,8 @@ typedef struct {
 
 typedef struct {
     char executableFilepath[4096 + 1]; // filepath of executable
-    char selectedFilename[4096 + 1]; // output filename - maximum filepath is 260 characters on windows and 4096 on linux
-    char openOrSave; // 0 - open, 1 - save
-    int32_t numExtensions; // number of extensions
-    char **extensions; // array of allowed extensions (7 characters long max (cuz *.json;))
+    list_t *selectedFilenames; // output filenames from osToolsFileDialogPrompt (erased with every call, only has multiple items when multiselect is used)
+    list_t *globalExtensions; // list of global extensions accepted by file dialog
 } osToolsFileDialogObject;
 
 typedef struct {
@@ -156,9 +154,20 @@ void win32tcpDeinit();
 
 int32_t osToolsInit(char argv0[], GLFWwindow *window);
 
-void osToolsFileDialogAddExtension(char *extension);
+/* add a single extension to the global file extensions */
+void osToolsFileDialogAddGlobalExtension(char *extension);
 
-int32_t osToolsFileDialogPrompt(char openOrSave, char *prename);
+/* copies the data from the list to the global extensions (you can free the list passed in immediately after calling this) */
+void osToolsFileDialogSetGlobalExtensions(list_t *extensions);
+
+/* 
+openOrSave: 0 - open, 1 - save
+multiselect: 0 - single file select, 1 - multiselect, can only use when opening (cannot save to multiple files)
+folder: 0 - file dialog, 1 - folder dialog
+filename: refers to autofill filename ("null" or empty string for no autofill)
+extensions: pass in a list of accepted file extensions or pass in NULL to use global list of extensions
+*/
+int32_t osToolsFileDialogPrompt(int8_t openOrSave, int8_t multiselect, int8_t folder, char *filename, list_t *extensions);
 
 uint8_t *osToolsMapFile(char *filename, uint32_t *sizeOutput);
 

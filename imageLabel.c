@@ -765,15 +765,16 @@ void parseRibbonOutput() {
         if (ribbonRender.output[2] == 1) { // New
             printf("New\n");
         }
-        if (ribbonRender.output[2] == 2) { // Import
-            if (osToolsFileDialogPrompt(0, "") != -1) {
-                importLabels(osToolsFileDialog.selectedFilename);
-                printf("Imported labels from: %s\n", osToolsFileDialog.selectedFilename);
+        if (ribbonRender.output[2] == 2) { // Import Labels
+            if (osToolsFileDialogPrompt(0, 0, 0, "", NULL) != -1) {
+                printf("%s\n", osToolsFileDialog.selectedFilenames -> data[0].s);
+                importLabels(osToolsFileDialog.selectedFilenames -> data[0].s);
+                printf("Imported labels from: %s\n", osToolsFileDialog.selectedFilenames -> data[0].s);
             }
         }
-        if (ribbonRender.output[2] == 3) { // Export
+        if (ribbonRender.output[2] == 3) { // Export Labels
             exportLabels();
-            printf("Exported labels to labels/\n");
+            printf("Exported labels to labels/ folder\n");
         }
     }
     if (ribbonRender.output[1] == 1) { // Edit
@@ -864,11 +865,11 @@ int main(int argc, char *argv[]) {
     popupInit("config/popupConfig.txt", -60, -20, 60, 20);
     /* initialise osTools */
     osToolsInit(argv[0], window); // must include argv[0] to get executableFilepath, must include GLFW window
-    osToolsFileDialogAddExtension("txt"); // add txt to extension restrictions
-    osToolsFileDialogAddExtension("png"); // add png to extension restrictions
-    osToolsFileDialogAddExtension("jpeg"); // add jpeg to extension restrictions
-    osToolsFileDialogAddExtension("jpg"); // add jpg to extension restrictions
-    osToolsFileDialogAddExtension("bmp"); // add bmp to extension restrictions
+    osToolsFileDialogAddGlobalExtension("txt"); // add txt to extension restrictions
+    osToolsFileDialogAddGlobalExtension("png"); // add png to extension restrictions
+    osToolsFileDialogAddGlobalExtension("jpeg"); // add jpeg to extension restrictions
+    osToolsFileDialogAddGlobalExtension("jpg"); // add jpg to extension restrictions
+    osToolsFileDialogAddGlobalExtension("bmp"); // add bmp to extension restrictions
     
     init();
     textureInit("dataset/");

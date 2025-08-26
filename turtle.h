@@ -1066,10 +1066,8 @@ typedef struct {
 
 typedef struct {
     char executableFilepath[4096 + 1]; // filepath of executable
-    char selectedFilename[4096 + 1]; // output filename - maximum filepath is 260 characters on windows and 4096 on linux
-    char openOrSave; // 0 - open, 1 - save
-    int32_t numExtensions; // number of extensions
-    char **extensions; // array of allowed extensions (7 characters long max (cuz *.json;))
+    list_t *selectedFilenames; // output filenames from osToolsFileDialogPrompt (erased with every call, only has multiple items when multiselect is used)
+    list_t *globalExtensions; // list of global extensions accepted by file dialog
 } osToolsFileDialogObject;
 
 typedef struct {
@@ -1187,9 +1185,20 @@ void win32tcpDeinit();
 
 int32_t osToolsInit(char argv0[], GLFWwindow *window);
 
-void osToolsFileDialogAddExtension(char *extension);
+/* add a single extension to the global file extensions */
+void osToolsFileDialogAddGlobalExtension(char *extension);
 
-int32_t osToolsFileDialogPrompt(char openOrSave, char *prename);
+/* copies the data from the list to the global extensions (you can free the list passed in immediately after calling this) */
+void osToolsFileDialogSetGlobalExtensions(list_t *extensions);
+
+/* 
+openOrSave: 0 - open, 1 - save
+multiselect: 0 - single file select, 1 - multiselect, can only use when opening (cannot save to multiple files)
+folder: 0 - file dialog, 1 - folder dialog
+filename: refers to autofill filename ("null" or empty string for no autofill)
+extensions: pass in a list of accepted file extensions or pass in NULL to use global list of extensions
+*/
+int32_t osToolsFileDialogPrompt(int8_t openOrSave, int8_t multiselect, int8_t folder, char *filename, list_t *extensions);
 
 uint8_t *osToolsMapFile(char *filename, uint32_t *sizeOutput);
 
@@ -14439,6 +14448,11 @@ osToolsMemmapObject osToolsMemmap;
 
 /* OS independent functions */
 void osToolsIndependentInit(GLFWwindow *window) {
+    /* initialise file dialog */
+    osToolsFileDialog.selectedFilenames = list_init();
+    osToolsFileDialog.globalExtensions = list_init();
+    /* initialise clipboard */
+    osToolsClipboard.text = glfwGetClipboardString(osToolsGLFW.osToolsWindow);
     /* initialise glfw cursors */
     osToolsGLFW.osToolsWindow = window;
     osToolsGLFW.standardCursors[0] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
@@ -14772,114 +14786,145 @@ int32_t osToolsInit(char argv0[], GLFWwindow *window) {
         index--;
     }
     osToolsFileDialog.executableFilepath[index + 1] = '\0';
-    /* initialise file dialog */
-    strcpy(osToolsFileDialog.selectedFilename, "null");
-    osToolsFileDialog.openOrSave = 0; // open by default
-    osToolsFileDialog.numExtensions = 0; // 0 means all extensions
-    osToolsFileDialog.extensions = malloc(1 * sizeof(char *)); // malloc list
-
-    /* initialise clipboard */
-    osToolsClipboard.text = glfwGetClipboardString(osToolsGLFW.osToolsWindow);
     return 0;
 }
 
-void osToolsFileDialogAddExtension(char *extension) {
-    if (strlen(extension) <= 4) {
-        osToolsFileDialog.numExtensions += 1;
-        osToolsFileDialog.extensions = realloc(osToolsFileDialog.extensions, osToolsFileDialog.numExtensions * sizeof(char *));
-        osToolsFileDialog.extensions[osToolsFileDialog.numExtensions - 1] = strdup(extension);
-    } else {
-        printf("extension name: %s too long\n", extension);
-    }
+void osToolsFileDialogAddGlobalExtension(char *extension) {
+    list_append(osToolsFileDialog.globalExtensions, (unitype) extension, 's');
 }
 
-int32_t osToolsFileDialogPrompt(char openOrSave, char *filename) { // 0 - open, 1 - save, filename refers to autofill filename ("null" or empty string for no autofill)
-    osToolsFileDialog.openOrSave = openOrSave;
+void osToolsFileDialogSetGlobalExtensions(list_t *extensions) {
+    list_copy(osToolsFileDialog.globalExtensions, extensions);
+}
+
+/* 
+openOrSave: 0 - open, 1 - save
+multiselect: 0 - single file select, 1 - multiselect, can only use when opening (cannot save to multiple files)
+folder: 0 - file dialog, 1 - folder dialog
+filename: refers to autofill filename ("null" or empty string for no autofill)
+extensions: pass in a list of accepted file extensions or pass in NULL to use global list of extensions
+*/
+int32_t osToolsFileDialogPrompt(int8_t openOrSave, int8_t multiselect, int8_t folder, char *filename, list_t *extensions) {
     HRESULT hr = CoInitializeEx(NULL, 0); // https://learn.microsoft.com/en-us/windows/win32/api/objbase/ne-objbase-coinit
-    if (SUCCEEDED(hr)) {
-        IFileDialog *fileDialog;
-        IShellItem *psiResult;
-        PWSTR pszFilePath = NULL;
-        hr = CoCreateInstance(&CLSID_FileOpenDialog, NULL, CLSCTX_ALL, &IID_IFileOpenDialog, (void**) &fileDialog);
-        if (SUCCEEDED(hr)) {
-            fileDialog -> lpVtbl -> SetOptions(fileDialog, 0); // https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/ne-shobjidl_core-_fileopendialogoptions from my tests these don't seem to do anything
-
-            /* configure autofill filename */
-            if (openOrSave == 1 && strcmp(filename, "null") != 0) {
-                int32_t i = 0;
-                uint16_t prename[MAX_PATH + 1];
-                while (filename[i] != '\0' && i < MAX_PATH + 1) {
-                    prename[i] = filename[i]; // convert from char to WCHAR
-                    i++;
-                }
-                prename[i] = '\0';
-                fileDialog -> lpVtbl -> SetFileName(fileDialog, prename);
-            }
-
-            /* load file restrictions
-            Info: each COMDLG creates one more entry to the dropdown to the right of the text box in the file dialog window
-            You can only see files that are specified in the types on the current COMDLG_FILTERSPEC selected in the dropdown
-            Thats why I shove all the types into one COMDLG_FILTERSPEC, because I want the user to be able to see all compatible files at once
-            */
-            if (osToolsFileDialog.numExtensions > 0) {
-                COMDLG_FILTERSPEC *fileExtensions = malloc(sizeof(COMDLG_FILTERSPEC)); // just one filter
-                WCHAR *buildFilter = malloc(10 * osToolsFileDialog.numExtensions * sizeof(WCHAR));
-                int32_t j = 0;
-                for (int32_t i = 0; i < osToolsFileDialog.numExtensions; i++) {
-                    buildFilter[j] = (uint16_t) '*';
-                    buildFilter[j + 1] = (uint16_t) '.';
-                    j += 2;
-                    for (uint32_t k = 0; k < strlen(osToolsFileDialog.extensions[i]) && k < 8; k++) {
-                        buildFilter[j] = osToolsFileDialog.extensions[i][k];
-                        j += 1;
-                    }
-                    buildFilter[j] = (uint16_t) ';';
-                    j += 1;
-                }
-                buildFilter[j] = (uint16_t) '\0';
-                (*fileExtensions).pszName = L"Specified Types";
-                (*fileExtensions).pszSpec = buildFilter;
-                fileDialog -> lpVtbl -> SetFileTypes(fileDialog, 1, fileExtensions);
-                free(buildFilter);
-                free(fileExtensions);
-            }
-
-            /* configure title and button text */
-            if (openOrSave == 0) {
-                /* open */
-                fileDialog -> lpVtbl -> SetOkButtonLabel(fileDialog, L"Open");
-                fileDialog -> lpVtbl -> SetTitle(fileDialog, L"Open");
-            } else {
-                /* save */
-                fileDialog -> lpVtbl -> SetOkButtonLabel(fileDialog, L"Save");
-                fileDialog -> lpVtbl -> SetTitle(fileDialog, L"Save");
-            }
-
-            /* execute */
-            fileDialog -> lpVtbl -> Show(fileDialog, NULL); // opens window
-            hr = fileDialog -> lpVtbl -> GetResult(fileDialog, &psiResult); // succeeds if a file is selected
-            if (SUCCEEDED(hr)){
-                hr = psiResult -> lpVtbl -> GetDisplayName(psiResult, SIGDN_FILESYSPATH, &pszFilePath); // extracts path name
-                if (SUCCEEDED(hr)) {
-                    int32_t i = 0;
-                    /* convert from WCHAR to char */
-                    while (pszFilePath[i] != '\0' && i < MAX_PATH + 1) {
-                        osToolsFileDialog.selectedFilename[i] = pszFilePath[i];
-                        i++;
-                    }
-                    osToolsFileDialog.selectedFilename[i] = '\0';
-                    CoTaskMemFree(pszFilePath);
-                    return 0;
-                }
-                psiResult -> lpVtbl -> Release(psiResult);
-            }
-            fileDialog -> lpVtbl -> Release(fileDialog);
-        } else {
-            printf("ERROR - HRESULT: %lx\n", hr);
-        }
-        CoUninitialize();
+    if (FAILED(hr)) {
+        return -1;
     }
-    return -1;
+    IFileOpenDialog *fileDialog;
+    IShellItemArray *psiResultArray;
+    PWSTR pszFilePath = NULL;
+    hr = CoCreateInstance(&CLSID_FileOpenDialog, NULL, CLSCTX_ALL, &IID_IFileOpenDialog, (void **) &fileDialog);
+    if (FAILED(hr)) {
+        CoUninitialize();
+        return -1;
+    }
+    FILEOPENDIALOGOPTIONS options = 0;
+    if (openOrSave == 1) {
+        /* prompt user if trying to overwrite file when saving */
+        options |= FOS_OVERWRITEPROMPT;
+    }
+    if (openOrSave == 0 && multiselect) {
+        /* enable multiselect */
+        options |= FOS_ALLOWMULTISELECT;
+    }
+    if (folder) {
+        /* switch to folder-only prompt */
+        options |= FOS_PICKFOLDERS;
+    }
+    fileDialog -> lpVtbl -> SetOptions(fileDialog, options); // https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/ne-shobjidl_core-_fileopendialogoptions
+    /* configure autofill filename */
+    if (openOrSave == 1 && strcmp(filename, "null") != 0) {
+        int32_t i = 0;
+        WCHAR prename[MAX_PATH + 1];
+        while (filename[i] != '\0' && i < MAX_PATH + 1) {
+            prename[i] = filename[i]; // convert from char to WCHAR
+            i++;
+        }
+        prename[i] = '\0';
+        fileDialog -> lpVtbl -> SetFileName(fileDialog, prename);
+    }
+
+    /* load file restrictions
+    Info: each COMDLG creates one more entry to the dropdown to the right of the text box in the file dialog window
+    You can only see files that are specified in the types on the current COMDLG_FILTERSPEC selected in the dropdown
+    Thats why I shove all the types into one COMDLG_FILTERSPEC, because I want the user to be able to see all compatible files at once
+    */
+    if (extensions == NULL) {
+        extensions = osToolsFileDialog.globalExtensions;
+    }
+    if (extensions -> length > 0 && folder == 0) {
+        COMDLG_FILTERSPEC *fileExtensions = malloc(sizeof(COMDLG_FILTERSPEC)); // just one filter
+        int32_t totalMemory = 1;
+        for (int32_t i = 0; i < extensions -> length; i++) {
+            totalMemory += strlen(extensions -> data[i].s) + 3;
+        }
+        WCHAR *buildFilter = malloc(totalMemory * 2);
+        int32_t j = 0;
+        for (int32_t i = 0; i < extensions -> length; i++) {
+            buildFilter[j] = (uint16_t) '*';
+            buildFilter[j + 1] = (uint16_t) '.';
+            j += 2;
+            for (uint32_t k = 0; k < strlen(extensions -> data[i].s) && k < 8; k++) {
+                buildFilter[j] = extensions -> data[i].s[k];
+                j += 1;
+            }
+            buildFilter[j] = (uint16_t) ';';
+            j += 1;
+        }
+        buildFilter[j] = (uint16_t) '\0';
+        // printf("malloc'd %d bytes and used %d of them\n", totalMemory, j + 1);
+        (*fileExtensions).pszName = L"Specified Types";
+        (*fileExtensions).pszSpec = buildFilter;
+        fileDialog -> lpVtbl -> SetFileTypes(fileDialog, 1, fileExtensions);
+        free(buildFilter);
+        free(fileExtensions);
+    }
+
+    /* configure title and button text */
+    if (openOrSave == 0) {
+        /* open */
+        fileDialog -> lpVtbl -> SetOkButtonLabel(fileDialog, L"Open");
+        fileDialog -> lpVtbl -> SetTitle(fileDialog, L"Open");
+    } else {
+        /* save */
+        fileDialog -> lpVtbl -> SetOkButtonLabel(fileDialog, L"Save");
+        fileDialog -> lpVtbl -> SetTitle(fileDialog, L"Save");
+    }
+
+    /* execute */
+    fileDialog -> lpVtbl -> Show(fileDialog, NULL); // opens window
+    hr = fileDialog -> lpVtbl -> GetResults(fileDialog, &psiResultArray); // succeeds if a file is selected
+    if (FAILED(hr)) {
+        printf("failed GetResult %ld\n", hr);
+        fileDialog -> lpVtbl -> Release(fileDialog);
+        CoUninitialize();
+        return -1;
+    }
+    DWORD numberOfSelectedFiles;
+    psiResultArray -> lpVtbl -> GetCount(psiResultArray, &numberOfSelectedFiles);
+    list_clear(osToolsFileDialog.selectedFilenames);
+    for (int32_t i = 0; i < numberOfSelectedFiles; i++) {
+        IShellItem *psiResult;
+        hr = psiResultArray -> lpVtbl -> GetItemAt(psiResultArray, 0, &psiResult);
+        hr |= psiResult -> lpVtbl -> GetDisplayName(psiResult, SIGDN_FILESYSPATH, &pszFilePath); // extracts path name
+        if (FAILED(hr)) {
+            psiResult -> lpVtbl -> Release(psiResult);
+            fileDialog -> lpVtbl -> Release(fileDialog);
+            CoUninitialize();
+            return -1;
+        }
+        int32_t i = 0;
+        /* convert from WCHAR to char */
+        int32_t pathLength = wcslen(pszFilePath);
+        char addToSelectedFilenames[pathLength + 1];
+        while (pszFilePath[i] != '\0' && i < MAX_PATH + 1) {
+            addToSelectedFilenames[i] = pszFilePath[i];
+            i++;
+        }
+        addToSelectedFilenames[i] = '\0';
+        list_append(osToolsFileDialog.selectedFilenames, (unitype) addToSelectedFilenames, 's');
+        CoTaskMemFree(pszFilePath);
+    }
+    return 0;
 }
 
 uint8_t *osToolsMapFile(char *filename, uint32_t *sizeOutput) {
@@ -14999,6 +15044,8 @@ list_t *osToolsListFiles(char *directory) {
             list_append(output, (unitype) (int64_t) filesize.QuadPart, LIST_TYPE_INT64);
         }
     } while (FindNextFile(fileHandle, &findData) != 0);
+    /* sort list https://stackoverflow.com/questions/39048747/how-in-the-world-does-windows-file-explorer-sort-by-name 
+    I'm actually just not going to sort them */
     return output;
 }
 
@@ -15391,7 +15438,6 @@ int32_t osToolsInit(char argv0[], GLFWwindow *window) {
 
     /* initialise file dialog */
     strcpy(osToolsFileDialog.selectedFilename, "null");
-    osToolsFileDialog.openOrSave = 0; // open by default
     osToolsFileDialog.numExtensions = 0; // 0 means all extensions
     osToolsFileDialog.extensions = malloc(1 * sizeof(char *)); // malloc list
     return 0;
