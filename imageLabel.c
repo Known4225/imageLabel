@@ -804,10 +804,10 @@ void importLabelsFolder(char *folderpath) {
                 sscanf(line, "%d %lf %lf %lf %lf\n", &class, &centerX, &centerY, &width, &height);
                 // printf("%d %lf %lf %lf %lf\n", class, centerX, centerY, width, height);
                 list_append(self.labels -> data[foundImage].r, (unitype) class, 'i');
-                list_append(self.labels -> data[foundImage].r, (unitype) (centerX * 640), 'd');
-                list_append(self.labels -> data[foundImage].r, (unitype) (centerY * 640), 'd');
-                list_append(self.labels -> data[foundImage].r, (unitype) (width * 640), 'd');
-                list_append(self.labels -> data[foundImage].r, (unitype) (height * 640), 'd');
+                list_append(self.labels -> data[foundImage].r, (unitype) (centerX * self.imageData -> data[foundImage * 2].i), 'd');
+                list_append(self.labels -> data[foundImage].r, (unitype) (centerY * self.imageData -> data[foundImage * 2 + 1].i), 'd');
+                list_append(self.labels -> data[foundImage].r, (unitype) (width * self.imageData -> data[foundImage * 2].i), 'd');
+                list_append(self.labels -> data[foundImage].r, (unitype) (height * self.imageData -> data[foundImage * 2 + 1].i), 'd');
             }
         }
     }
