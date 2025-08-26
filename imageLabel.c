@@ -3,6 +3,8 @@
 #include "turtle.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "include/stb_image.h" // THANK YOU https://github.com/nothings/stb
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+#include "include/stb_image_resize2.h" // https://github.com/nothings/stb
 #include <time.h>
 
 /*
@@ -12,6 +14,10 @@ include statistics (number of labels, distribution, number of images)
 
 train model? no.
 */
+
+/* resolution of images (program will automatically convert any images to these) */
+const int32_t imageWidth = 640;
+const int32_t imageHeight = 640;
 
 /* minimum height of labels (in pixels) */
 const double labelMinimumWidth  = 20;
@@ -189,27 +195,34 @@ void textureInit(const char *filepath) {
     for (int i = 0; i < files -> length / 2 + 1; i++) {
         glBindTexture(GL_TEXTURE_2D, texturePower[i]);
     }
-    /* each of our images are 640 by 640 */
-    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 640, 640, files -> length / 2 + 1, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    /* each of our images are imageWidth by imageHeight */
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGB, imageWidth, imageHeight, files -> length / 2 + 1, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
     int width;
     int height;
     int nbChannels;
     unsigned char *imgData;
+    unsigned char *resizedData;
     /* load all textures */
     for (int i = 0; i < files -> length / 2; i++) {
         strcpy(filename, filepath);
         strcat(filename, files -> data[i * 2].s);
         imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
         if (imgData != NULL) {
-            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, self.imageNames -> length, width, height, 1, GL_RGB, GL_UNSIGNED_BYTE, imgData);
-            list_append(self.imageNames, files -> data[i * 2], 's');
-            list_append(self.imageData, (unitype) width, 'i');
-            list_append(self.imageData, (unitype) height, 'i');
-            list_append(self.labels, (unitype) list_init(), 'r');
+            resizedData = stbir_resize_uint8_srgb(imgData, width, height, 3 * width, NULL, imageWidth, imageHeight, 3 * imageWidth, STBIR_RGB);
+            if (resizedData != NULL) {
+                glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, self.imageNames -> length, width, height, 1, GL_RGB, GL_UNSIGNED_BYTE, resizedData);
+                list_append(self.imageNames, files -> data[i * 2], 's');
+                list_append(self.imageData, (unitype) width, 'i');
+                list_append(self.imageData, (unitype) height, 'i');
+                list_append(self.labels, (unitype) list_init(), 'r');
+                free(resizedData);
+            } else {
+                printf("textureInit: Could not resize image\n");
+            }
             stbi_image_free(imgData);
         } else {
-            printf("Could not load image: %s\n", filename);
+            printf("textureInit: Could not load image: %s\n", filename);
         }
     }
     glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
@@ -829,25 +842,27 @@ void importLabelsFolder(char *folderpath) {
                 break;
             }
         }
-        if (foundImage != -1) {
-            /* populate label data */
-            list_clear(self.labels -> data[foundImage].r);
-            char fullname[strlen(folderpath) + strlen(files -> data[i].s) + 2];
-            strcpy(fullname, folderpath);
-            strcat(fullname, files -> data[i].s);
-            FILE *fp = fopen(fullname, "r");
-            char line[1024];
-            while (fgets(line, 1024, fp) != NULL) {
-                int32_t class;
-                double centerX, centerY, width, height;
-                sscanf(line, "%d %lf %lf %lf %lf\n", &class, &centerX, &centerY, &width, &height);
-                // printf("%d %lf %lf %lf %lf\n", class, centerX, centerY, width, height);
-                list_append(self.labels -> data[foundImage].r, (unitype) class, 'i');
-                list_append(self.labels -> data[foundImage].r, (unitype) (centerX * self.imageData -> data[foundImage * 2].i), 'd');
-                list_append(self.labels -> data[foundImage].r, (unitype) (centerY * self.imageData -> data[foundImage * 2 + 1].i), 'd');
-                list_append(self.labels -> data[foundImage].r, (unitype) (width * self.imageData -> data[foundImage * 2].i), 'd');
-                list_append(self.labels -> data[foundImage].r, (unitype) (height * self.imageData -> data[foundImage * 2 + 1].i), 'd');
-            }
+        if (foundImage == -1) {
+            printf("importLabelsFolder: Could not find image %s\n", file);
+            continue;
+        }
+        /* populate label data */
+        list_clear(self.labels -> data[foundImage].r);
+        char fullname[strlen(folderpath) + strlen(files -> data[i].s) + 2];
+        strcpy(fullname, folderpath);
+        strcat(fullname, files -> data[i].s);
+        FILE *fp = fopen(fullname, "r");
+        char line[1024];
+        while (fgets(line, 1024, fp) != NULL) {
+            int32_t class;
+            double centerX, centerY, width, height;
+            sscanf(line, "%d %lf %lf %lf %lf\n", &class, &centerX, &centerY, &width, &height);
+            // printf("%d %lf %lf %lf %lf\n", class, centerX, centerY, width, height);
+            list_append(self.labels -> data[foundImage].r, (unitype) class, 'i');
+            list_append(self.labels -> data[foundImage].r, (unitype) (centerX * self.imageData -> data[foundImage * 2].i), 'd');
+            list_append(self.labels -> data[foundImage].r, (unitype) (centerY * self.imageData -> data[foundImage * 2 + 1].i), 'd');
+            list_append(self.labels -> data[foundImage].r, (unitype) (width * self.imageData -> data[foundImage * 2].i), 'd');
+            list_append(self.labels -> data[foundImage].r, (unitype) (height * self.imageData -> data[foundImage * 2 + 1].i), 'd');
         }
     }
     list_free(files);
