@@ -9,7 +9,7 @@
 
 /*
 TODO:
-import arbitrary image files (resize?)
+import arbitrary image files (resize?) - maintain aspect ratio
 include statistics (number of labels, distribution, number of images)
 
 train model? no.
@@ -211,7 +211,7 @@ void textureInit(const char *filepath) {
         if (imgData != NULL) {
             resizedData = stbir_resize_uint8_srgb(imgData, width, height, 3 * width, NULL, imageWidth, imageHeight, 3 * imageWidth, STBIR_RGB);
             if (resizedData != NULL) {
-                glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, self.imageNames -> length, width, height, 1, GL_RGB, GL_UNSIGNED_BYTE, resizedData);
+                glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, self.imageNames -> length, imageWidth, imageHeight, 1, GL_RGB, GL_UNSIGNED_BYTE, resizedData);
                 list_append(self.imageNames, files -> data[i * 2], 's');
                 list_append(self.imageData, (unitype) width, 'i');
                 list_append(self.imageData, (unitype) height, 'i');
