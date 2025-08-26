@@ -19,6 +19,10 @@ classID, centerX, centerY, width, height
 
 where the `centerX`, `centerY`, `width`, `height` range from 0 to 1.
 
+# lbl files
+
+The imageLabel program supports a custom file type called an `lbl` file. This offers a compact way to save the labels of a dataset in a single file as well as saving the names of the labels. You can save an `lbl` file using `File -> Save lbl`. You can also load an `lbl` file using `File -> Import lbl`. This has the same effect as exporting and importing a label folder.
+
 # Ensure the following about your dataset
 
 - All image are 640x640 (will change)
