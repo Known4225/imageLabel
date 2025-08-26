@@ -1,3 +1,3 @@
-File, New, Import Labels, Export Labels
+File, Import Images, Import lbl, Save lbl, Import Label Folder, Export Label Folder
 Edit, Undo, Redo, Cut, Copy, Paste
 View, Change Theme, GLFW

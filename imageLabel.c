@@ -93,7 +93,7 @@ void init() {
     self.textureScaleY = 150;
     self.imageX = -140;
     self.imageY = 0;
-    self.imageIndex = 1;
+    self.imageIndex = -1;
 
     self.leftButtonVar = 0;
     self.rightButtonVar = 0;
@@ -204,6 +204,10 @@ void textureInit(const char *filepath) {
         }
     }
     glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
+    if (self.imageNames -> length > 1) {
+        self.imageIndex = 1;
+    }
+    list_free(files);
 }
 
 /* update autosave file */
@@ -245,7 +249,7 @@ void render() {
     if (self.imageIndex < 0) {
         tt_setColor(TT_COLOR_TEXT);
         turtleTextWriteString("No dataset loaded.", self.imageX, self.imageY + 20, 15, 50);
-        turtleTextWriteString("Place your dataset inside the dataset/ folder and rerun the program", self.imageX, self.imageY - 5, 7, 50);
+        turtleTextWriteString("Import dataset using File -> Import Images", self.imageX, self.imageY - 5, 7, 50);
         return;
     }
     /* change button position and label */
@@ -672,6 +676,16 @@ void render() {
     // list_print(selections);
 }
 
+/* removes extension from a filename, mutates the argument */
+void removeExtension(char *file) {
+    for (int32_t j = strlen(file) - 1; j > -1; j--) {
+        if (file[j] == '.') {
+            file[j] = '\0';
+            break;
+        }
+    }
+}
+
 /* import labels from a single file (autosave file format) */
 void importLabels(char *filename) {
     FILE *fp = fopen(filename, "r");
@@ -757,31 +771,59 @@ void importLabels(char *filename) {
     fclose(fp);
 }
 
-/* import labels from labels/ folder */
-void importLabelsFolder(char *filepath) {
-
+/* import labels from folder */
+void importLabelsFolder(char *folderpath) {
+    list_t *files = osToolsListFiles(folderpath);
+    for (int32_t i = 0; i < files -> length; i += 2) {
+        /* strip extension */
+        char file[strlen(files -> data[i].s) + 1];
+        strcpy(file, files -> data[i].s);
+        removeExtension(file);
+        /* search for file in image list */
+        int32_t foundImage = -1;
+        for (int32_t j = 1; j < self.imageNames -> length; j++) {
+            char image[strlen(self.imageNames -> data[j].s) + 1];
+            strcpy(image, self.imageNames -> data[j].s);
+            removeExtension(image);
+            if (strcmp(file, image) == 0) {
+                foundImage = j;
+                break;
+            }
+        }
+        if (foundImage != -1) {
+            /* populate label data */
+            list_clear(self.labels -> data[foundImage].r);
+            char fullname[strlen(folderpath) + strlen(files -> data[i].s) + 2];
+            strcpy(fullname, folderpath);
+            strcat(fullname, files -> data[i].s);
+            FILE *fp = fopen(fullname, "r");
+            char line[1024];
+            while (fgets(line, 1024, fp) != NULL) {
+                int32_t class;
+                double centerX, centerY, width, height;
+                sscanf(line, "%d %lf %lf %lf %lf\n", &class, &centerX, &centerY, &width, &height);
+                // printf("%d %lf %lf %lf %lf\n", class, centerX, centerY, width, height);
+                list_append(self.labels -> data[foundImage].r, (unitype) class, 'i');
+                list_append(self.labels -> data[foundImage].r, (unitype) (centerX * 640), 'd');
+                list_append(self.labels -> data[foundImage].r, (unitype) (centerY * 640), 'd');
+                list_append(self.labels -> data[foundImage].r, (unitype) (width * 640), 'd');
+                list_append(self.labels -> data[foundImage].r, (unitype) (height * 640), 'd');
+            }
+        }
+    }
+    list_free(files);
 }
 
 /* export labels to labels/ folder using the YOLO format */
-void exportLabels(char *filepath) {
-    list_t *folders = osToolsListFolders(osToolsFileDialog.executableFilepath);
-    if (list_count(folders, (unitype) "labels", 's') < 1) {
-        /* create labels folder */
-        osToolsCreateFolder(filepath);
-    } else {
-        /* delete all files in labels */
-        osToolsDeleteFolder(filepath);
-        osToolsCreateFolder(filepath);
-    }
-    list_free(folders);
+void exportLabels(char *folderpath) {
     /* populate folder with labels */
     for (int32_t i = 1; i < self.imageNames -> length; i++) {
         /* remove file extension */
-        int32_t pathLength = strlen(filepath);
+        int32_t pathLength = strlen(folderpath);
         char name[strlen(self.imageNames -> data[i].s) + pathLength + 12];
-        strcpy(name, filepath);
+        strcpy(name, folderpath);
         strcat(name, self.imageNames -> data[i].s);
-        for (int32_t j = strlen(self.imageNames -> data[i].s) + strlen(filepath); j > pathLength; j--) {
+        for (int32_t j = strlen(self.imageNames -> data[i].s) + strlen(folderpath); j > pathLength; j--) {
             if (name[j] == '.') {
                 name[j] = '\0';
                 break;
@@ -803,24 +845,44 @@ void parseRibbonOutput() {
     }
     ribbonRender.output[0] = 0;
     if (ribbonRender.output[1] == 0) { // File
-        if (ribbonRender.output[2] == 1) { // New
+        if (ribbonRender.output[2] == 1) {
             printf("New\n");
         }
-        if (ribbonRender.output[2] == 2) { // Import Labels
+        if (ribbonRender.output[2] == 2) { // Import lbl
             if (osToolsFileDialogPrompt(0, 0, 0, "", NULL) != -1) {
                 importLabels(osToolsFileDialog.selectedFilenames -> data[0].s);
                 printf("Imported labels from: %s\n", osToolsFileDialog.selectedFilenames -> data[0].s);
             }
         }
-        if (ribbonRender.output[2] == 3) { // Export Labels
-            char constructedFilepath[4096];
-            strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
-            strcat(constructedFilepath, "labels/");
-            exportLabels(constructedFilepath);
+        if (ribbonRender.output[2] == 3) { // Save lbl
+            
+        }
+        if (ribbonRender.output[2] == 4) { // Import Label Folder
+            if (osToolsFileDialogPrompt(0, 0, 1, "", NULL) != -1) {
+                importLabelsFolder(osToolsFileDialog.selectedFilenames -> data[0].s);
+                printf("Imported labels from: %s\n", osToolsFileDialog.selectedFilenames -> data[0].s);
+            }
+        }
+        if (ribbonRender.output[2] == 5) { // Export Label Folder
             if (osToolsFileDialogPrompt(1, 0, 1, "", NULL) != -1) {
                 exportLabels(osToolsFileDialog.selectedFilenames -> data[0].s);
                 printf("Exported labels to %s\n", osToolsFileDialog.selectedFilenames -> data[0].s);
             }
+            /* save a backup export in the labels/ folder */
+            char constructedFilepath[4096];
+            strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
+            strcat(constructedFilepath, "labels/");
+            list_t *folders = osToolsListFolders(osToolsFileDialog.executableFilepath);
+            if (list_count(folders, (unitype) "labels", 's') < 1) {
+                /* create labels folder */
+                osToolsCreateFolder(constructedFilepath);
+            } else {
+                /* delete all files in labels */
+                osToolsDeleteFolder(constructedFilepath);
+                osToolsCreateFolder(constructedFilepath);
+            }
+            list_free(folders);
+            exportLabels(constructedFilepath);
             printf("Exported labels to labels/ folder\n");
         }
     }
@@ -922,17 +984,25 @@ int main(int argc, char *argv[]) {
     popupInit(constructedFilepath, -60, -20, 60, 20);
 
     init();
-    strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
-    strcat(constructedFilepath, "dataset/");
-    textureInit(constructedFilepath);
+    list_t *checkFolder = osToolsListFolders(osToolsFileDialog.executableFilepath);
+    if (list_count(checkFolder, (unitype) "dataset", 's')) {
+        strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
+        strcat(constructedFilepath, "dataset/");
+        textureInit(constructedFilepath);
+    }
+    list_free(checkFolder);
     if (argc > 1) {
         /* load labels from files */
         importLabels(argv[1]);
     } else {
         /* load labels from labels folder */
-        strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
-        strcat(constructedFilepath, "labels/");
-        importLabelsFolder(constructedFilepath);
+        list_t *checkFolder = osToolsListFolders(osToolsFileDialog.executableFilepath);
+        if (list_count(checkFolder, (unitype) "labels", 's')) {
+            strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
+            strcat(constructedFilepath, "labels/");
+            importLabelsFolder(constructedFilepath);
+        }
+        list_free(checkFolder);
     }
 
     uint32_t tps = 120; // ticks per second (locked to fps in this case)
