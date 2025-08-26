@@ -517,12 +517,17 @@ int32_t osToolsFileDialogPrompt(int8_t openOrSave, int8_t multiselect, int8_t fo
         int32_t i = 0;
         /* convert from WCHAR to char */
         int32_t pathLength = wcslen(pszFilePath);
-        char addToSelectedFilenames[pathLength + 1];
+        char addToSelectedFilenames[pathLength + 2];
         while (pszFilePath[i] != '\0' && i < MAX_PATH + 1) {
             addToSelectedFilenames[i] = pszFilePath[i];
             i++;
         }
-        addToSelectedFilenames[i] = '\0';
+        if (folder) {
+            addToSelectedFilenames[i] = '\\';
+            addToSelectedFilenames[i + 1] = '\0';
+        } else {
+            addToSelectedFilenames[i] = '\0';
+        }
         list_append(osToolsFileDialog.selectedFilenames, (unitype) addToSelectedFilenames, 's');
         CoTaskMemFree(pszFilePath);
     }

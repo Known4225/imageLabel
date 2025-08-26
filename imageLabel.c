@@ -764,7 +764,6 @@ void importLabelsFolder(char *filepath) {
 
 /* export labels to labels/ folder using the YOLO format */
 void exportLabels(char *filepath) {
-    printf("%s\n", filepath);
     list_t *folders = osToolsListFolders(osToolsFileDialog.executableFilepath);
     if (list_count(folders, (unitype) "labels", 's') < 1) {
         /* create labels folder */
@@ -774,6 +773,7 @@ void exportLabels(char *filepath) {
         osToolsDeleteFolder(filepath);
         osToolsCreateFolder(filepath);
     }
+    list_free(folders);
     /* populate folder with labels */
     for (int32_t i = 1; i < self.imageNames -> length; i++) {
         /* remove file extension */
@@ -808,7 +808,6 @@ void parseRibbonOutput() {
         }
         if (ribbonRender.output[2] == 2) { // Import Labels
             if (osToolsFileDialogPrompt(0, 0, 0, "", NULL) != -1) {
-                printf("%s\n", osToolsFileDialog.selectedFilenames -> data[0].s);
                 importLabels(osToolsFileDialog.selectedFilenames -> data[0].s);
                 printf("Imported labels from: %s\n", osToolsFileDialog.selectedFilenames -> data[0].s);
             }
@@ -818,6 +817,10 @@ void parseRibbonOutput() {
             strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
             strcat(constructedFilepath, "labels/");
             exportLabels(constructedFilepath);
+            if (osToolsFileDialogPrompt(1, 0, 1, "", NULL) != -1) {
+                exportLabels(osToolsFileDialog.selectedFilenames -> data[0].s);
+                printf("Exported labels to %s\n", osToolsFileDialog.selectedFilenames -> data[0].s);
+            }
             printf("Exported labels to labels/ folder\n");
         }
     }
