@@ -4,6 +4,8 @@ A tool for labelling images for object detection models
 
 # How to use
 
+Run the `imageLabel.exe` program.
+
 Place your images (png, jpg, bmp) in the folder `dataset/` and run the `imageLabel.exe` program. The images will be loaded into the program (it may take a little bit of time for a large dataset)
 
 You can then label the images with the mouse

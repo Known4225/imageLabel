@@ -83,7 +83,7 @@ void init() {
     list_append(self.labelNames, (unitype) "label3", 's');
     list_append(self.labelNames, (unitype) "label4", 's');
     strcpy(self.labelFilename, osToolsFileDialog.executableFilepath);
-    strcat(self.labelFilename, "labelsAutosave/labels");
+    strcat(self.labelFilename, "autosave/labels");
     char unixTimestamp[16];
     sprintf(unixTimestamp, "%llu", time(NULL));
     strcat(self.labelFilename, unixTimestamp);
@@ -221,6 +221,16 @@ void textureInit(const char *filepath) {
 
 /* update autosave file */
 void updateLabelFile() {
+    /* check for autosave folder */
+    list_t *folders = osToolsListFolders(osToolsFileDialog.executableFilepath);
+    if (list_count(folders, (unitype) "autosave", 's') == 0) {
+        printf("%s\n", osToolsFileDialog.executableFilepath);
+        char createFolder[4096];
+        strcpy(createFolder, osToolsFileDialog.executableFilepath);
+        strcat(createFolder, "autosave");
+        osToolsCreateFolder(createFolder);
+    }
+    list_clear(folders);
     FILE *labelfp = fopen(self.labelFilename, "w");
     /* header (label names and colors) */
     fprintf(labelfp, "/* header */\n");
