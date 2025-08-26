@@ -7,7 +7,8 @@
 
 /*
 TODO:
-import arbitrary image files
+import arbitrary image files (resize?)
+include statistics (number of labels, distribution, number of images)
 
 train model? no.
 */
@@ -164,7 +165,15 @@ void init() {
 }
 
 void textureInit(const char *filepath) {
-    /* 
+    /* clear all image data */
+    list_clear(self.imageNames);
+    list_clear(self.imageData);
+    list_clear(self.labels);
+    list_append(self.imageNames, (unitype) "null", 's'); // for some reason I cannot put an image in the first slot of the glTexImage3D
+    list_append(self.imageData, (unitype) 0, 'i');
+    list_append(self.imageData, (unitype) 0, 'i');
+    list_append(self.labels, (unitype) list_init(), 'r');
+    /*
     Notes:
     https://stackoverflow.com/questions/75976623/how-to-use-gl-texture-2d-array-for-binding-multiple-textures-as-array
     https://stackoverflow.com/questions/72648980/opengl-sampler2d-array
@@ -213,6 +222,26 @@ void textureInit(const char *filepath) {
 /* update autosave file */
 void updateLabelFile() {
     FILE *labelfp = fopen(self.labelFilename, "w");
+    /* header (label names and colors) */
+    fprintf(labelfp, "/* header */\n");
+    for (int32_t i = 1; i < self.labelNames -> length; i++) {
+        fprintf(labelfp, "%s %d %d %d\n", self.labelNames -> data[i].s, (int32_t) self.labelColors -> data[i * 3].d, (int32_t) self.labelColors -> data[i * 3 + 1].d, (int32_t) self.labelColors -> data[i * 3 + 2].d);
+    }
+    /* data (label coordinates) */
+    for (int32_t i = 1; i < self.labels -> length; i++) {
+        list_t *selections = self.labels -> data[i].r;
+        if (selections -> length > 0) {
+            fprintf(labelfp, "/* labels for %s */\n", self.imageNames -> data[i].s);
+        }
+        for (int32_t j = 0; j < selections -> length; j += 5) {
+            fprintf(labelfp, "%d %d %d %d %d\n", selections -> data[j].i, (int32_t) selections -> data[j + 1].d, (int32_t) selections -> data[j + 2].d, (int32_t) selections -> data[j + 3].d, (int32_t) selections -> data[j + 4].d);
+        }
+    }
+    fclose(labelfp);
+}
+
+void saveLabelFile(char *filename) {
+    FILE *labelfp = fopen(filename, "w");
     /* header (label names and colors) */
     fprintf(labelfp, "/* header */\n");
     for (int32_t i = 1; i < self.labelNames -> length; i++) {
@@ -845,8 +874,11 @@ void parseRibbonOutput() {
     }
     ribbonRender.output[0] = 0;
     if (ribbonRender.output[1] == 0) { // File
-        if (ribbonRender.output[2] == 1) {
-            printf("New\n");
+        if (ribbonRender.output[2] == 1) { // Import Images
+            if (osToolsFileDialogPrompt(0, 0, 1, "", NULL) != -1) {
+                textureInit(osToolsFileDialog.selectedFilenames -> data[0].s);
+                printf("Imported images from %s\n", osToolsFileDialog.selectedFilenames -> data[0].s);
+            }
         }
         if (ribbonRender.output[2] == 2) { // Import lbl
             if (osToolsFileDialogPrompt(0, 0, 0, "", NULL) != -1) {
@@ -855,7 +887,10 @@ void parseRibbonOutput() {
             }
         }
         if (ribbonRender.output[2] == 3) { // Save lbl
-            
+            if (osToolsFileDialogPrompt(1, 0, 0, "labels.lbl", NULL) != -1) {
+                saveLabelFile(osToolsFileDialog.selectedFilenames -> data[0].s);
+                printf("Saved labels to: %s\n", osToolsFileDialog.selectedFilenames -> data[0].s);
+            }
         }
         if (ribbonRender.output[2] == 4) { // Import Label Folder
             if (osToolsFileDialogPrompt(0, 0, 1, "", NULL) != -1) {
@@ -888,27 +923,23 @@ void parseRibbonOutput() {
     }
     if (ribbonRender.output[1] == 1) { // Edit
         if (ribbonRender.output[2] == 1) { // Undo
-            printf("Undo\n");
+            printf("Undo not implemented\n");
         }
         if (ribbonRender.output[2] == 2) { // Redo
-            printf("Redo\n");
+            printf("Redo not implemented\n");
         }
         if (ribbonRender.output[2] == 3) { // Cut
-            osToolsClipboardSetText("test123");
-            printf("Cut \"test123\" to clipboard!\n");
+            printf("Cut not implemented\n");
         }
         if (ribbonRender.output[2] == 4) { // Copy
-            osToolsClipboardSetText("test345");
-            printf("Copied \"test345\" to clipboard!\n");
+            printf("Copy not implemented\n");
         }
         if (ribbonRender.output[2] == 5) { // Paste
-            osToolsClipboardGetText();
-            printf("Pasted \"%s\" from clipboard!\n", osToolsClipboard.text);
+            printf("Pasted not implemented\n");
         }
     }
     if (ribbonRender.output[1] == 2) { // View
         if (ribbonRender.output[2] == 1) { // Change theme
-            printf("Change theme\n");
             if (tt_theme == TT_THEME_DARK) {
                 turtleBgColor(36, 30, 32);
                 turtleToolsSetTheme(TT_THEME_COLT);
@@ -924,7 +955,7 @@ void parseRibbonOutput() {
             }
         } 
         if (ribbonRender.output[2] == 2) { // GLFW
-            printf("GLFW settings\n");
+            printf("GLFW settings not implemented\n");
         } 
     }
 }
@@ -984,6 +1015,7 @@ int main(int argc, char *argv[]) {
     popupInit(constructedFilepath, -60, -20, 60, 20);
 
     init();
+    /* load default dataset under dataset/ */
     list_t *checkFolder = osToolsListFolders(osToolsFileDialog.executableFilepath);
     if (list_count(checkFolder, (unitype) "dataset", 's')) {
         strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
@@ -995,7 +1027,7 @@ int main(int argc, char *argv[]) {
         /* load labels from files */
         importLabels(argv[1]);
     } else {
-        /* load labels from labels folder */
+        /* load default labels from labels/ folder */
         list_t *checkFolder = osToolsListFolders(osToolsFileDialog.executableFilepath);
         if (list_count(checkFolder, (unitype) "labels", 's')) {
             strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
