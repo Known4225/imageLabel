@@ -7,8 +7,6 @@
 
 /*
 TODO:
-save and load label files
-export dataset
 import arbitrary image files
 
 train model? no.
@@ -22,8 +20,8 @@ typedef struct {
     list_t *imageNames; // name
     list_t *imageData; // width, height
     list_t *labels; // list of lists that goes class, centerX, centerY, width, height (in pixels) (yolo label format)
-    list_t *labelNames;
-    char labelFilename[256];
+    list_t *labelNames; // names of labels
+    char labelFilename[4096];
     double textureScaleX; // pixels to coordinates
     double textureScaleY;
     double imageX; // coordinate of center of image
@@ -83,11 +81,12 @@ void init() {
     list_append(self.labelNames, (unitype) "label2", 's');
     list_append(self.labelNames, (unitype) "label3", 's');
     list_append(self.labelNames, (unitype) "label4", 's');
-    strcpy(self.labelFilename, "labelsAutosave/labels");
+    strcpy(self.labelFilename, osToolsFileDialog.executableFilepath);
+    strcat(self.labelFilename, "labelsAutosave/labels");
     char unixTimestamp[16];
     sprintf(unixTimestamp, "%llu", time(NULL));
     strcat(self.labelFilename, unixTimestamp);
-    strcat(self.labelFilename, ".txt");
+    strcat(self.labelFilename, ".lbl"); // special .lbl file that can be opened with this application
     // FILE *fpcreate = fopen(self.labelFilename, "w");
     // fclose(fpcreate);
     self.textureScaleX = 150;
@@ -199,10 +198,10 @@ void textureInit(const char *filepath) {
             list_append(self.imageData, (unitype) width, 'i');
             list_append(self.imageData, (unitype) height, 'i');
             list_append(self.labels, (unitype) list_init(), 'r');
+            stbi_image_free(imgData);
         } else {
             printf("Could not load image: %s\n", filename);
         }
-        stbi_image_free(imgData);
     }
     glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
 }
@@ -210,6 +209,12 @@ void textureInit(const char *filepath) {
 /* update autosave file */
 void updateLabelFile() {
     FILE *labelfp = fopen(self.labelFilename, "w");
+    /* header (label names and colors) */
+    fprintf(labelfp, "/* header */\n");
+    for (int32_t i = 1; i < self.labelNames -> length; i++) {
+        fprintf(labelfp, "%s %d %d %d\n", self.labelNames -> data[i].s, (int32_t) self.labelColors -> data[i * 3].d, (int32_t) self.labelColors -> data[i * 3 + 1].d, (int32_t) self.labelColors -> data[i * 3 + 2].d);
+    }
+    /* data (label coordinates) */
     for (int32_t i = 1; i < self.labels -> length; i++) {
         list_t *selections = self.labels -> data[i].r;
         if (selections -> length > 0) {
@@ -236,6 +241,13 @@ void setCurrentLabel(int32_t value) {
 
 /* render loop */
 void render() {
+    /* crash guard */
+    if (self.imageIndex < 0) {
+        tt_setColor(TT_COLOR_TEXT);
+        turtleTextWriteString("No dataset loaded.", self.imageX, self.imageY + 20, 15, 50);
+        turtleTextWriteString("Place your dataset inside the dataset/ folder and rerun the program", self.imageX, self.imageY - 5, 7, 50);
+        return;
+    }
     /* change button position and label */
     int32_t previousImageIndex = self.imageIndex - 1;
     int32_t nextImageIndex = self.imageIndex + 1;
@@ -281,7 +293,7 @@ void render() {
     if (self.newLabelButtonVar || (turtleKeyPressed(GLFW_KEY_ENTER) && self.newLabelTextboxLastStatus > 0)) {
         if (strlen(self.newLabelTextbox -> text) > 0) {
             list_append(self.labelNames, (unitype) self.newLabelTextbox -> text, 's');
-            if (self.labelNames -> length < self.labelNames -> length * 3) {
+            if (self.labelColors -> length < self.labelNames -> length * 3) {
                 list_append(self.labelColors, (unitype) 255.0, 'd');
                 list_append(self.labelColors, (unitype) 255.0, 'd');
                 list_append(self.labelColors, (unitype) 255.0, 'd');
@@ -669,11 +681,15 @@ void importLabels(char *filename) {
     while (fgets(line, 1024, fp) != NULL) {
         if (iter == 0) {
             char checkHold[20] = {0};
-            memcpy(checkHold, line, 14);
-            if (strcmp(checkHold, "/* labels for ")) {
-                printf("importLabels: File %s in wrong format\n", filename);
+            memcpy(checkHold, line, 12);
+            if (strcmp(checkHold, "/* header */")) {
+                printf("importLabels: File %s in wrong format (header not found)\n", filename);
                 return;
             }
+            list_clear(self.labelNames);
+            list_append(self.labelNames, (unitype) "null", 's');
+            iter++;
+            continue;
         }
         char checkHold[20] = {0};
         memcpy(checkHold, line, 14);
@@ -701,46 +717,71 @@ void importLabels(char *filename) {
             }
             if (discoveredIndex == -1) {
                 printf("importLabels: Could not find image %s\n", parsedImageName);
+                self.imageIndex = -1;
                 return;
             }
         } else {
             if (discoveredIndex == -1) {
-                printf("importLabels: No header error on line %d\n", iter + 1);
-                return;
+                /* assume in header stage */
+                char labelName[48];
+                int32_t red, green, blue;
+                sscanf(line, "%s %d %d %d\n", labelName, &red, &green, &blue);
+                list_append(self.labelNames, (unitype) labelName, 's');
+                if (self.labelColors -> length < self.labelNames -> length * 3) {
+                    list_append(self.labelColors, (unitype) (double) red, 'd');
+                    list_append(self.labelColors, (unitype) (double) green, 'd');
+                    list_append(self.labelColors, (unitype) (double) blue, 'd');
+                } else {
+                    self.labelColors -> data[(self.labelNames -> length - 1) * 3].d = (double) red;
+                    self.labelColors -> data[(self.labelNames -> length - 1) * 3 + 1].d = (double) green;
+                    self.labelColors -> data[(self.labelNames -> length - 1) * 3 + 2].d = (double) blue;
+                }
+            } else {
+                /* assume data entry */
+                int32_t class;
+                double centerX, centerY, width, height;
+                sscanf(line, "%d %lf %lf %lf %lf\n", &class, &centerX, &centerY, &width, &height);
+                if (class >= self.labelNames -> length) {
+                    printf("importLabels: Invalid class on line %d\n", iter);
+                    return;
+                }
+                list_append(self.labels -> data[discoveredIndex].r, (unitype) class, 'i');
+                list_append(self.labels -> data[discoveredIndex].r, (unitype) centerX, 'd');
+                list_append(self.labels -> data[discoveredIndex].r, (unitype) centerY, 'd');
+                list_append(self.labels -> data[discoveredIndex].r, (unitype) width, 'd');
+                list_append(self.labels -> data[discoveredIndex].r, (unitype) height, 'd');
             }
-            /* assume data entry */
-            int32_t class;
-            double centerX, centerY, width, height;
-            sscanf(line, "%d %lf %lf %lf %lf\n", &class, &centerX, &centerY, &width, &height);
-            list_append(self.labels -> data[discoveredIndex].r, (unitype) class, 'i');
-            list_append(self.labels -> data[discoveredIndex].r, (unitype) centerX, 'd');
-            list_append(self.labels -> data[discoveredIndex].r, (unitype) centerY, 'd');
-            list_append(self.labels -> data[discoveredIndex].r, (unitype) width, 'd');
-            list_append(self.labels -> data[discoveredIndex].r, (unitype) height, 'd');
         }
         iter++;
     }
     fclose(fp);
 }
 
+/* import labels from labels/ folder */
+void importLabelsFolder(char *filepath) {
+
+}
+
 /* export labels to labels/ folder using the YOLO format */
-void exportLabels() {
-    list_t *folders = osToolsListFolders(".");
+void exportLabels(char *filepath) {
+    printf("%s\n", filepath);
+    list_t *folders = osToolsListFolders(osToolsFileDialog.executableFilepath);
     if (list_count(folders, (unitype) "labels", 's') < 1) {
         /* create labels folder */
-        osToolsCreateFolder("./labels");
+        osToolsCreateFolder(filepath);
     } else {
         /* delete all files in labels */
-        osToolsDeleteFolder("./labels");
-        osToolsCreateFolder("./labels");
+        osToolsDeleteFolder(filepath);
+        osToolsCreateFolder(filepath);
     }
     /* populate folder with labels */
     for (int32_t i = 1; i < self.imageNames -> length; i++) {
         /* remove file extension */
-        char name[strlen(self.imageNames -> data[i].s) + 5 + 10];
-        strcpy(name, "./labels/");
+        int32_t pathLength = strlen(filepath);
+        char name[strlen(self.imageNames -> data[i].s) + pathLength + 12];
+        strcpy(name, filepath);
         strcat(name, self.imageNames -> data[i].s);
-        for (int32_t j = strlen(self.imageNames -> data[i].s) + 8; j > 8; j--) {
+        for (int32_t j = strlen(self.imageNames -> data[i].s) + strlen(filepath); j > pathLength; j--) {
             if (name[j] == '.') {
                 name[j] = '\0';
                 break;
@@ -773,7 +814,10 @@ void parseRibbonOutput() {
             }
         }
         if (ribbonRender.output[2] == 3) { // Export Labels
-            exportLabels();
+            char constructedFilepath[4096];
+            strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
+            strcat(constructedFilepath, "labels/");
+            exportLabels(constructedFilepath);
             printf("Exported labels to labels/ folder\n");
         }
     }
@@ -855,26 +899,37 @@ int main(int argc, char *argv[]) {
     /* initialise turtle */
     turtleInit(window, -320, -180, 320, 180);
     glfwSetWindowSize(window, windowHeight * 16 / 9 * 0.85, monitorSize -> height * 0.85); // doing it this way ensures the window spawns in the top left of the monitor and fixes resizing limits
+    /* initialise osTools */
+    osToolsInit(argv[0], window); // must include argv[0] to get executableFilepath, must include GLFW window
+    osToolsFileDialogAddGlobalExtension("lbl"); // add lbl to extension restrictions
+    char constructedFilepath[4096];
     /* initialise turtleText */
-    turtleTextInit("config/roberto.tgl");
+    strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
+    strcat(constructedFilepath, "config/roberto.tgl");
+    turtleTextInit(constructedFilepath);
     /* initialise turtleTools ribbon */
     turtleBgColor(30, 30, 30);
     turtleToolsSetTheme(TT_THEME_DARK); // dark theme preset
-    ribbonInit("config/ribbonConfig.txt");
+    strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
+    strcat(constructedFilepath, "config/ribbonConfig.txt");
+    ribbonInit(constructedFilepath);
     /* initialise turtleTools popup */
-    popupInit("config/popupConfig.txt", -60, -20, 60, 20);
-    /* initialise osTools */
-    osToolsInit(argv[0], window); // must include argv[0] to get executableFilepath, must include GLFW window
-    osToolsFileDialogAddGlobalExtension("txt"); // add txt to extension restrictions
-    osToolsFileDialogAddGlobalExtension("png"); // add png to extension restrictions
-    osToolsFileDialogAddGlobalExtension("jpeg"); // add jpeg to extension restrictions
-    osToolsFileDialogAddGlobalExtension("jpg"); // add jpg to extension restrictions
-    osToolsFileDialogAddGlobalExtension("bmp"); // add bmp to extension restrictions
-    
+    strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
+    strcat(constructedFilepath, "config/popupConfig.txt");
+    popupInit(constructedFilepath, -60, -20, 60, 20);
+
     init();
-    textureInit("dataset/");
+    strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
+    strcat(constructedFilepath, "dataset/");
+    textureInit(constructedFilepath);
     if (argc > 1) {
+        /* load labels from files */
         importLabels(argv[1]);
+    } else {
+        /* load labels from labels folder */
+        strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
+        strcat(constructedFilepath, "labels/");
+        importLabelsFolder(constructedFilepath);
     }
 
     uint32_t tps = 120; // ticks per second (locked to fps in this case)
