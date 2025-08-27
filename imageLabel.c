@@ -253,37 +253,6 @@ void textureInit(const char *filepath) {
     list_free(files);
 }
 
-/* update autosave file */
-void updateLabelFile() {
-    /* check for autosave folder */
-    list_t *folders = osToolsListFolders(osToolsFileDialog.executableFilepath);
-    if (list_count(folders, (unitype) "autosave", 's') == 0) {
-        printf("%s\n", osToolsFileDialog.executableFilepath);
-        char createFolder[4096];
-        strcpy(createFolder, osToolsFileDialog.executableFilepath);
-        strcat(createFolder, "autosave");
-        osToolsCreateFolder(createFolder);
-    }
-    list_clear(folders);
-    FILE *labelfp = fopen(self.labelFilename, "w");
-    /* header (label names and colors) */
-    fprintf(labelfp, "/* header */\n");
-    for (int32_t i = 1; i < self.labelNames -> length; i++) {
-        fprintf(labelfp, "%s %d %d %d\n", self.labelNames -> data[i].s, (int32_t) self.labelColors -> data[i * 3].d, (int32_t) self.labelColors -> data[i * 3 + 1].d, (int32_t) self.labelColors -> data[i * 3 + 2].d);
-    }
-    /* data (label coordinates) */
-    for (int32_t i = 1; i < self.labels -> length; i++) {
-        list_t *selections = self.labels -> data[i].r;
-        if (selections -> length > 0) {
-            fprintf(labelfp, "/* labels for %s */\n", self.imageNames -> data[i].s);
-        }
-        for (int32_t j = 0; j < selections -> length; j += 5) {
-            fprintf(labelfp, "%d %d %d %d %d\n", selections -> data[j].i, (int32_t) selections -> data[j + 1].d, (int32_t) selections -> data[j + 2].d, (int32_t) selections -> data[j + 3].d, (int32_t) selections -> data[j + 4].d);
-        }
-    }
-    fclose(labelfp);
-}
-
 void saveLabelFile(char *filename) {
     FILE *labelfp = fopen(filename, "w");
     /* header (label names and colors) */
@@ -302,6 +271,21 @@ void saveLabelFile(char *filename) {
         }
     }
     fclose(labelfp);
+}
+
+/* update autosave file */
+void updateLabelFile() {
+    /* check for autosave folder */
+    list_t *folders = osToolsListFolders(osToolsFileDialog.executableFilepath);
+    if (list_count(folders, (unitype) "autosave", 's') == 0) {
+        printf("%s\n", osToolsFileDialog.executableFilepath);
+        char createFolder[4096];
+        strcpy(createFolder, osToolsFileDialog.executableFilepath);
+        strcat(createFolder, "autosave");
+        osToolsCreateFolder(createFolder);
+    }
+    list_clear(folders);
+    saveLabelFile(self.labelFilename);
 }
 
 /* set currently selected label and load associated values */
