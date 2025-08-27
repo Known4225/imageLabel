@@ -29,6 +29,7 @@ typedef struct {
     list_t *imageData; // width, height
     list_t *labels; // list of lists that goes class, centerX, centerY, width, height (in pixels) (yolo label format)
     list_t *labelNames; // names of labels
+    list_t *statistics; // Name of label, number of labels
     char labelFilename[4096];
     double textureScaleX; // pixels to coordinates
     double textureScaleY;
@@ -80,6 +81,7 @@ void init() {
     self.imageData = list_init();
     self.labels = list_init();
     self.labelNames = list_init();
+    self.statistics = list_init();
     list_append(self.imageNames, (unitype) "null", 's'); // for some reason I cannot put an image in the first slot of the glTexImage3D
     list_append(self.imageData, (unitype) 0, 'i');
     list_append(self.imageData, (unitype) 0, 'i');
@@ -205,6 +207,8 @@ void setImageIndex(int32_t set) {
     }
 }
 
+void updateStatistics();
+
 void textureInit(const char *filepath) {
     /* clear all image data */
     list_clear(self.imageNames);
@@ -238,7 +242,7 @@ void textureInit(const char *filepath) {
     int height;
     int nbChannels;
     unsigned char *imgData;
-    unsigned char *resizedData = malloc(5 * imageWidth * imageHeight);
+    unsigned char *resizedData = malloc(3 * imageWidth * imageHeight);
     double loadingTextures = 0;
     tt_setColor(TT_COLOR_POPUP_BOX);
     turtleRectangle(-310, -175, 310, -165);
@@ -256,7 +260,6 @@ void textureInit(const char *filepath) {
                 list_append(self.imageData, (unitype) width, 'i');
                 list_append(self.imageData, (unitype) height, 'i');
                 list_append(self.labels, (unitype) list_init(), 'r');
-                printf("Loaded %s\n", filename);
             } else {
                 printf("textureInit: Could not resize image\n");
             }
@@ -281,6 +284,7 @@ void textureInit(const char *filepath) {
         setImageIndex(1);
     }
     list_free(files);
+    updateStatistics();
 }
 
 void saveLabelFile(char *filename) {
@@ -303,8 +307,32 @@ void saveLabelFile(char *filename) {
     fclose(labelfp);
 }
 
+/* update statistics pi chart */
+void updateStatistics() {
+    list_clear(self.statistics);
+    for (int32_t i = 0; i < self.labelNames -> length; i++) {
+        list_append(self.statistics, self.labelNames -> data[i], 's');
+        list_append(self.statistics, (unitype) (double) 0, 'd');
+    }
+    list_append(self.statistics, (unitype) "undefined", 's');
+    list_append(self.statistics, (unitype) (double) 0, 'd');
+    for (int32_t j = 0; j < self.labels -> length; j++) {
+        for (int32_t k = 0; k < self.labels -> data[j].r -> length; k += 5) {
+            int32_t class = self.labels -> data[j].r -> data[k].i;
+            if (class * 2 + 1 >= self.statistics -> length) {
+                /* class is undefined (too large) */
+                self.statistics -> data[self.statistics -> length - 1].d += 1;
+            } else {
+                self.statistics -> data[class * 2 + 1].d += 1;
+            }
+        }
+    }
+}
+
 /* update autosave file */
 void updateLabelFile() {
+    printf("update label file %lld\n", time(NULL) % 100);
+    updateStatistics();
     /* check for autosave folder */
     list_t *folders = osToolsListFolders(osToolsFileDialog.executableFilepath);
     if (list_count(folders, (unitype) "autosave", 's') == 0) {
@@ -330,6 +358,80 @@ void setCurrentLabel(int32_t value) {
     strcpy(self.deleteLabelButton -> label, deleteButtonStr);
 }
 
+/* im going to make this a semi-portable function */
+void drawPiChart(double x, double y, double size, list_t *data, list_t *colors) {
+    /* list format:
+    Name of field
+    Number of entries (double)
+
+    I'm finding stride sort to be something ive wanted on more than one occasion, I should add it to my list library
+    */
+    int32_t prez = size * 5; // number of triangles that makes up the pi chart
+    double theta = 2.0 / prez * M_PI;
+    double totalEntries = 0;
+    for (int32_t i = 0; i < data -> length; i += 2) {
+        totalEntries += data -> data[i + 1].d;
+    }
+    double oldCircleX = x;
+    double oldCircleY = y + size;
+    double circleX = x + size * sin(theta);
+    double circleY = y + size * cos(theta);
+    /* united shapes of apportionment - hamilton's method */
+    int32_t totalConsumed = 0;
+    int32_t sequentialRuns[data -> length / 2];
+    double sequentialFraction[data -> length / 2];
+    double divisor = totalEntries / prez;
+    if (divisor < 0.00001) {
+        totalConsumed = prez;
+        divisor += 1;
+    }
+    for (int32_t i = 0; i < data -> length; i += 2) {
+        double holding;
+        sequentialFraction[i / 2] = modf(data -> data[i + 1].d / divisor, &holding);
+        sequentialRuns[i / 2] = round(holding);
+        totalConsumed += sequentialRuns[i / 2];
+    }
+    while (totalConsumed < prez) {
+        double max = -1;
+        int32_t maxIndex = -1;
+        for (int32_t i = 0; i < data -> length / 2; i++) {
+            if (sequentialFraction[i] > max) {
+                max = sequentialFraction[i];
+                maxIndex = i;
+            }
+        }
+        if (maxIndex >= 0) {
+            sequentialFraction[maxIndex] = -1;
+            sequentialRuns[maxIndex] += 1;
+        }
+        totalConsumed += 1;
+    }
+    // for (int32_t i = 0; i < data -> length / 2; i++) {
+    //     printf("%d, ", sequentialRuns[i]);
+    // }
+    // puts("");
+    int32_t dataIndex = 1;
+    int32_t countSequence = 0;
+    for (int32_t i = 0; i < prez; i++) {
+        while (dataIndex < data -> length && countSequence < 1) {
+            if (colors -> length > dataIndex / 2 * 3) {
+                turtlePenColor(colors -> data[dataIndex / 2 * 3].d, colors -> data[dataIndex / 2 * 3 + 1].d, colors -> data[dataIndex / 2 * 3 + 2].d);
+            } else {
+                turtlePenColor(0, 0, 0);
+            }
+            countSequence = sequentialRuns[dataIndex / 2];
+            dataIndex += 2;
+        }
+        turtleTriangle(x, y, oldCircleX, oldCircleY, circleX, circleY);
+        theta += 2.0 / prez * M_PI;
+        oldCircleX = circleX;
+        oldCircleY = circleY;
+        circleX = x + size * sin(theta);
+        circleY = y + size * cos(theta);
+        countSequence--;
+    }
+}
+
 void renderLabelUI() {
     if (self.newLabelButtonVar || (turtleKeyPressed(GLFW_KEY_ENTER) && self.newLabelTextboxLastStatus > 0)) {
         if (strlen(self.newLabelTextbox -> text) > 0) {
@@ -341,6 +443,7 @@ void renderLabelUI() {
             }
             self.newLabelTextbox -> text[0] = '\0';
             setCurrentLabel(self.labelNames -> length - 1);
+            updateStatistics();
         }
         self.newLabelButtonVar = 0;
     }
@@ -366,7 +469,7 @@ void renderLabelUI() {
     }
     if (self.currentLabel > 0) {
         tt_setColor(TT_COLOR_TEXT);
-        turtleRectangle(self.imageX + self.textureScaleX + 210 - 80, -180, self.imageX + self.textureScaleX + 210 + 80, 180);
+        turtleRectangle(self.imageX + self.textureScaleX + 210 - 80, 65, self.imageX + self.textureScaleX + 210 + 80, 180);
         turtlePenColor(self.labelColors -> data[self.currentLabel * 3].d, self.labelColors -> data[self.currentLabel * 3 + 1].d, self.labelColors -> data[self.currentLabel * 3 + 2].d);
         turtleTextWriteString(">", self.imageX + self.textureScaleX + 6.7, self.imageY + self.textureScaleY - 13 * self.currentLabel - 28, 10, 0);
         /* render label editing UI */
@@ -415,6 +518,8 @@ void renderLabelUI() {
         turtleTextWriteString("Blue", self.labelRGB[2] -> x - self.labelRGB[2] -> length / 2 - self.labelRGB[2] -> size, self.labelRGB[2] -> y, self.labelRGB[2] -> size - 1, 100);
         turtleTextWriteStringf(self.labelRGB[2] -> x + self.labelRGB[2] -> length / 2 + self.labelRGB[2] -> size, self.labelRGB[2] -> y, 4, 0, "%d", (int32_t) round(self.labelRGBValue[2]));
     }
+    /* draw statistics */
+    drawPiChart(220, -80, 50, self.statistics, self.labelColors);
 }
 
 /* render loop */
@@ -900,6 +1005,7 @@ void importLabels(char *filename) {
         iter++;
     }
     fclose(fp);
+    updateStatistics();
 }
 
 /* import labels from folder */
@@ -962,6 +1068,7 @@ void importLabelsFolder(char *folderpath) {
         }
     }
     list_free(files);
+    updateStatistics();
 }
 
 /* export labels to labels/ folder using the YOLO format */
@@ -1144,11 +1251,11 @@ int main(int argc, char *argv[]) {
     popupInitList(popupConfig, -60, -20, 60, 20);
 
     init();
-    /* load default dataset under dataset/ */
+    /* load default dataset under images/ */
     list_t *checkFolder = osToolsListFolders(osToolsFileDialog.executableFilepath);
-    if (list_count(checkFolder, (unitype) "dataset", 's')) {
+    if (list_count(checkFolder, (unitype) "images", 's')) {
         strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
-        strcat(constructedFilepath, "dataset/");
+        strcat(constructedFilepath, "images/");
         textureInit(constructedFilepath);
     }
     list_free(checkFolder);

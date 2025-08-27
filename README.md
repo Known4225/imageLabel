@@ -32,4 +32,4 @@ The imageLabel program supports a custom file type called an `lbl` file. This of
 
 # Images
 
-![exampleImage](images/example.png)
+![exampleImage](documentation-images/example.png)
