@@ -11,7 +11,7 @@ Cut off UI elements
 File overwrite prompt not working
 Unicode truncate text function not implemented
 Can't see relevant files when choosing folder
-import arbitrary image files (resize?) - maintain aspect ratio
+Fix boxes on images with special aspect ratios
 loading bar when importing images
 include statistics (number of labels, distribution, number of images)
 
@@ -251,25 +251,14 @@ void textureInit(const char *filepath) {
         strcat(filename, files -> data[i * 2].s);
         imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
         if (imgData != NULL) {
-            double aspectRatio = (double) width / height;
-            int32_t cappedWidth, cappedHeight;
-            if (aspectRatio > 1) {
-                /* cap by width */
-                cappedWidth = imageWidth;
-                cappedHeight = floor(imageHeight / aspectRatio);
-            } else {
-                /* cap by height */
-                cappedHeight = imageHeight;
-                cappedWidth = floor(imageWidth * aspectRatio) - round((imageWidth * aspectRatio - floor(imageWidth * aspectRatio)) * 3);
-            }
-            printf("%s %d %d %lf %lf\n", filename, cappedWidth, cappedHeight, imageWidth * aspectRatio, round((imageWidth * aspectRatio - floor(imageWidth * aspectRatio)) * 3));
-            stbir_resize_uint8_linear(imgData, width, height, 3 * width, resizedData, cappedWidth, cappedHeight, 3 * cappedWidth, STBIR_RGB);
+            stbir_resize_uint8_linear(imgData, width, height, 3 * width, resizedData, imageWidth, imageHeight, 3 * imageWidth, STBIR_RGB);
             if (resizedData != NULL) {
-                glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, self.imageNames -> length, cappedWidth, cappedHeight, 1, GL_RGB, GL_UNSIGNED_BYTE, resizedData);
+                glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, self.imageNames -> length, imageWidth, imageHeight, 1, GL_RGB, GL_UNSIGNED_BYTE, resizedData);
                 list_append(self.imageNames, files -> data[i * 2], 's');
                 list_append(self.imageData, (unitype) width, 'i');
                 list_append(self.imageData, (unitype) height, 'i');
                 list_append(self.labels, (unitype) list_init(), 'r');
+                printf("Loaded %s\n", filename);
             } else {
                 printf("textureInit: Could not resize image\n");
             }
@@ -398,7 +387,16 @@ void render() {
     }
     self.newLabelTextboxLastStatus = self.newLabelTextbox -> status;
     /* render image */
-    turtleTexture(self.imageIndex, self.imageX - self.textureScaleX, self.imageY - self.textureScaleY, self.imageX + self.textureScaleX, self.imageY + self.textureScaleY, 0, 255, 255, 255);
+    tt_setColor(TT_COLOR_POPUP_BOX);
+    turtleRectangle(self.imageX - self.textureScaleX, self.imageY - self.textureScaleY, self.imageX + self.textureScaleX, self.imageY + self.textureScaleY);
+    double aspectRatio = (double) self.imageData -> data[self.imageIndex * 2].i / self.imageData -> data[self.imageIndex * 2 + 1].i;
+    if (aspectRatio > 1) {
+        /* cap by height */
+        turtleTexture(self.imageIndex, self.imageX - self.textureScaleX / aspectRatio, self.imageY - self.textureScaleY, self.imageX + self.textureScaleX / aspectRatio, self.imageY + self.textureScaleY, 0, 255, 255, 255);
+    } else {
+        /* cap by width */
+        turtleTexture(self.imageIndex, self.imageX - self.textureScaleX, self.imageY - self.textureScaleY * aspectRatio, self.imageX + self.textureScaleX, self.imageY + self.textureScaleY * aspectRatio, 0, 255, 255, 255);
+    }
     /* render all selections */
     int32_t canvasLabelHover = -1;
     int32_t canvasLabelResize = -1;
