@@ -529,8 +529,11 @@ int32_t osToolsFileDialogPrompt(int8_t openOrSave, int8_t multiselect, int8_t fo
             addToSelectedFilenames[i] = '\0';
         }
         list_append(osToolsFileDialog.selectedFilenames, (unitype) addToSelectedFilenames, 's');
+        psiResult -> lpVtbl -> Release(psiResult);
         CoTaskMemFree(pszFilePath);
     }
+    fileDialog -> lpVtbl -> Release(fileDialog);
+    CoUninitialize();
     return 0;
 }
 

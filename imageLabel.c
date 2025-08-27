@@ -741,6 +741,11 @@ void removeExtension(char *file) {
 
 /* import labels from a single lbl file (autosave file format) */
 void importLabels(char *filename) {
+    /* clear existing labels */
+    for (int32_t i = 0; i < self.labels -> length; i++) {
+        list_clear(self.labels -> data[i].r);
+    }
+    setCurrentLabel(0);
     FILE *fp = fopen(filename, "r");
     char line[1024];
     int32_t iter = 0;
@@ -784,8 +789,8 @@ void importLabels(char *filename) {
             }
             if (discoveredIndex == -1) {
                 printf("importLabels: Could not find image %s\n", parsedImageName);
-                setImageIndex(-1);
-                return;
+                iter++;
+                continue;
             }
         } else {
             if (discoveredIndex == -1) {
@@ -808,7 +813,7 @@ void importLabels(char *filename) {
                 int32_t class;
                 double centerX, centerY, width, height;
                 sscanf(line, "%d %lf %lf %lf %lf\n", &class, &centerX, &centerY, &width, &height);
-                if (class >= self.labelNames -> length) {
+                if (class + 1 >= self.labelNames -> length) {
                     printf("importLabels: Invalid class on line %d\n", iter);
                     return;
                 }
@@ -826,6 +831,11 @@ void importLabels(char *filename) {
 
 /* import labels from folder */
 void importLabelsFolder(char *folderpath) {
+    /* clear existing labels */
+    for (int32_t i = 0; i < self.labels -> length; i++) {
+        list_clear(self.labels -> data[i].r);
+    }
+    setCurrentLabel(0);
     list_t *files = osToolsListFiles(folderpath);
     for (int32_t i = 0; i < files -> length; i += 2) {
         /* strip extension */
@@ -858,7 +868,7 @@ void importLabelsFolder(char *folderpath) {
             int32_t class;
             double centerX, centerY, width, height;
             sscanf(line, "%d %lf %lf %lf %lf\n", &class, &centerX, &centerY, &width, &height);
-            while (class < self.labelNames -> length) {
+            while (class + 1 < self.labelNames -> length) {
                 char newLabel[16];
                 sprintf(newLabel, "label %d", &self.labelNames -> length);
                 list_append(self.labelNames, (unitype) newLabel, 's');
@@ -1033,6 +1043,10 @@ int main(int argc, char *argv[]) {
     /* initialise osTools */
     osToolsInit(argv[0], window); // must include argv[0] to get executableFilepath, must include GLFW window
     osToolsFileDialogAddGlobalExtension("lbl"); // add lbl to extension restrictions
+    // osToolsFileDialogAddGlobalExtension("png"); // add png to extension restrictions
+    // osToolsFileDialogAddGlobalExtension("jpg"); // add jpg to extension restrictions
+    // osToolsFileDialogAddGlobalExtension("jpeg"); // add jpeg to extension restrictions
+    // osToolsFileDialogAddGlobalExtension("bmp"); // add bmp to extension restrictions
     char constructedFilepath[4096];
     /* initialise turtleText */
     strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);

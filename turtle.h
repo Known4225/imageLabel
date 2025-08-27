@@ -680,7 +680,7 @@ extern tt_ribbon_t ribbonRender;
 /* initialise ribbon */
 int32_t ribbonInit(const char *filename);
 
-/* initialise ribbon with a list instead of a config file */
+/* initialise ribbon with a list instead of a config file - this function frees the list so you don't have to */
 int32_t ribbonInitList(list_t *config);
 
 /* internal */
@@ -716,7 +716,7 @@ extern tt_popup_t popup;
 /* initialise popup */
 int32_t popupInit(char *filename, double minX, double minY, double maxX, double maxY);
 
-/* initialise popup with a list instead of a config file */
+/* initialise popup with a list instead of a config file - this function frees the list so you don't have to */
 int32_t popupInitList(list_t *config, double minX, double minY, double maxX, double maxY);
 
 /* internal */
@@ -14963,8 +14963,11 @@ int32_t osToolsFileDialogPrompt(int8_t openOrSave, int8_t multiselect, int8_t fo
             addToSelectedFilenames[i] = '\0';
         }
         list_append(osToolsFileDialog.selectedFilenames, (unitype) addToSelectedFilenames, 's');
+        psiResult -> lpVtbl -> Release(psiResult);
         CoTaskMemFree(pszFilePath);
     }
+    fileDialog -> lpVtbl -> Release(fileDialog);
+    CoUninitialize();
     return 0;
 }
 
