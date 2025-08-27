@@ -12,6 +12,7 @@ File overwrite prompt not working
 Unicode truncate text function not implemented
 Can't see relevant files when choosing folder
 import arbitrary image files (resize?) - maintain aspect ratio
+loading bar when importing images
 include statistics (number of labels, distribution, number of images)
 
 train model? no.
@@ -239,21 +240,36 @@ void textureInit(const char *filepath) {
     int height;
     int nbChannels;
     unsigned char *imgData;
-    unsigned char *resizedData;
+    unsigned char *resizedData = malloc(5 * imageWidth * imageHeight);
+    double loadingTextures = 0;
+    tt_setColor(TT_COLOR_POPUP_BOX);
+    turtleRectangle(-310, -175, 310, -165);
+    tt_setColor(TT_COLOR_TEXT);
     /* load all textures */
     for (int i = 0; i < files -> length / 2; i++) {
         strcpy(filename, filepath);
         strcat(filename, files -> data[i * 2].s);
         imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
         if (imgData != NULL) {
-            resizedData = stbir_resize_uint8_srgb(imgData, width, height, 3 * width, NULL, imageWidth, imageHeight, 3 * imageWidth, STBIR_RGB);
+            double aspectRatio = (double) width / height;
+            int32_t cappedWidth, cappedHeight;
+            if (aspectRatio > 1) {
+                /* cap by width */
+                cappedWidth = imageWidth;
+                cappedHeight = floor(imageHeight / aspectRatio);
+            } else {
+                /* cap by height */
+                cappedHeight = imageHeight;
+                cappedWidth = floor(imageWidth * aspectRatio) - round((imageWidth * aspectRatio - floor(imageWidth * aspectRatio)) * 3);
+            }
+            printf("%s %d %d %lf %lf\n", filename, cappedWidth, cappedHeight, imageWidth * aspectRatio, round((imageWidth * aspectRatio - floor(imageWidth * aspectRatio)) * 3));
+            stbir_resize_uint8_linear(imgData, width, height, 3 * width, resizedData, cappedWidth, cappedHeight, 3 * cappedWidth, STBIR_RGB);
             if (resizedData != NULL) {
-                glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, self.imageNames -> length, imageWidth, imageHeight, 1, GL_RGB, GL_UNSIGNED_BYTE, resizedData);
+                glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, self.imageNames -> length, cappedWidth, cappedHeight, 1, GL_RGB, GL_UNSIGNED_BYTE, resizedData);
                 list_append(self.imageNames, files -> data[i * 2], 's');
                 list_append(self.imageData, (unitype) width, 'i');
                 list_append(self.imageData, (unitype) height, 'i');
                 list_append(self.labels, (unitype) list_init(), 'r');
-                free(resizedData);
             } else {
                 printf("textureInit: Could not resize image\n");
             }
@@ -261,7 +277,11 @@ void textureInit(const char *filepath) {
         } else {
             printf("textureInit: Could not load image: %s\n", filename);
         }
+        loadingTextures++;
+        turtleRectangle(-310, -175, -310 + loadingTextures / files -> length * 2 * 620, -165);
+        // turtleUpdate(); // breaks texture loading??
     }
+    free(resizedData);
     glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
     if (self.imageNames -> length > 1) {
         setImageIndex(1);
