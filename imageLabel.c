@@ -390,13 +390,16 @@ void render() {
     tt_setColor(TT_COLOR_POPUP_BOX);
     turtleRectangle(self.imageX - self.textureScaleX, self.imageY - self.textureScaleY, self.imageX + self.textureScaleX, self.imageY + self.textureScaleY);
     double aspectRatio = (double) self.imageData -> data[self.imageIndex * 2].i / self.imageData -> data[self.imageIndex * 2 + 1].i;
+    double multiplyX = 1;
+    double multiplyY = 1;
     if (aspectRatio > 1) {
         /* cap by height */
-        turtleTexture(self.imageIndex, self.imageX - self.textureScaleX / aspectRatio, self.imageY - self.textureScaleY, self.imageX + self.textureScaleX / aspectRatio, self.imageY + self.textureScaleY, 0, 255, 255, 255);
+        multiplyX = 1 / aspectRatio;
     } else {
         /* cap by width */
-        turtleTexture(self.imageIndex, self.imageX - self.textureScaleX, self.imageY - self.textureScaleY * aspectRatio, self.imageX + self.textureScaleX, self.imageY + self.textureScaleY * aspectRatio, 0, 255, 255, 255);
+        multiplyY = aspectRatio;
     }
+    turtleTexture(self.imageIndex, self.imageX - self.textureScaleX * multiplyX, self.imageY - self.textureScaleY * multiplyY, self.imageX + self.textureScaleX * multiplyX, self.imageY + self.textureScaleY * multiplyY, 0, 255, 255, 255);
     /* render all selections */
     int32_t canvasLabelHover = -1;
     int32_t canvasLabelResize = -1;
@@ -404,10 +407,10 @@ void render() {
     for (int32_t i = 0; i < selections -> length; i += 5) {
         turtlePenColor(self.labelColors -> data[selections -> data[i].i * 3].d, self.labelColors -> data[selections -> data[i].i * 3 + 1].d, self.labelColors -> data[selections -> data[i].i * 3 + 2].d);
         turtlePenSize(1);
-        double centerX = (selections -> data[i + 1].d / self.imageData -> data[self.imageIndex * 2].i * 2 - 1) * self.textureScaleX + self.imageX;
-        double centerY = (selections -> data[i + 2].d / self.imageData -> data[self.imageIndex * 2 + 1].i * 2 - 1) * -self.textureScaleY + self.imageY;
-        double width = selections -> data[i + 3].d / self.imageData -> data[self.imageIndex * 2].i * self.textureScaleX; // actually half of the width
-        double height = selections -> data[i + 4].d / self.imageData -> data[self.imageIndex * 2 + 1].i * self.textureScaleY; // actually half of the height
+        double centerX = (selections -> data[i + 1].d / self.imageData -> data[self.imageIndex * 2].i * 2 - 1) * self.textureScaleX * multiplyY + self.imageX; // no one can explain why multiplyX and multiplyY got flipped
+        double centerY = (selections -> data[i + 2].d / self.imageData -> data[self.imageIndex * 2 + 1].i * 2 - 1) * -self.textureScaleY * multiplyX + self.imageY;
+        double width = selections -> data[i + 3].d / self.imageData -> data[self.imageIndex * 2].i * self.textureScaleX * multiplyY; // actually half of the width
+        double height = selections -> data[i + 4].d / self.imageData -> data[self.imageIndex * 2 + 1].i * self.textureScaleY * multiplyX; // actually half of the height
         turtleGoto(centerX - width, centerY - height);
         turtlePenDown();
         turtleGoto(centerX + width, centerY - height);
@@ -665,8 +668,8 @@ void render() {
         turtleGoto(self.selectAnchorX, self.selectAnchorY);
         turtlePenUp();
     } else if (self.movingSelection > -1) {
-        selections -> data[self.movingSelection + 1].d = self.selectEndX + ((turtle.mouseX - self.selectAnchorX) / self.textureScaleX) * self.imageData -> data[self.imageIndex * 2].i * 0.5;
-        selections -> data[self.movingSelection + 2].d = self.selectEndY + ((self.selectAnchorY - turtle.mouseY) / self.textureScaleY) * self.imageData -> data[self.imageIndex * 2 + 1].i * 0.5;
+        selections -> data[self.movingSelection + 1].d = self.selectEndX + ((turtle.mouseX - self.selectAnchorX) / (self.textureScaleX * multiplyY)) * self.imageData -> data[self.imageIndex * 2].i * 0.5;
+        selections -> data[self.movingSelection + 2].d = self.selectEndY + ((self.selectAnchorY - turtle.mouseY) / (self.textureScaleY * multiplyX)) * self.imageData -> data[self.imageIndex * 2 + 1].i * 0.5;
         if (selections -> data[self.movingSelection + 1].d + selections -> data[self.movingSelection + 3].d / 2 > self.imageData -> data[self.imageIndex * 2].i) {
             selections -> data[self.movingSelection + 1].d = self.imageData -> data[self.imageIndex * 2].i - selections -> data[self.movingSelection + 3].d / 2;
         }
@@ -683,8 +686,8 @@ void render() {
     } else if (self.resizingSelection > -1) {
         if (self.resizingDirection == 7 || self.resizingDirection == 0 || self.resizingDirection == 1) {
             /* top function */
-            selections -> data[self.resizingSelection + 4].d = self.selectEndY + (turtle.mouseY - self.selectAnchorY) / 2 / self.textureScaleY * self.imageData -> data[self.imageIndex * 2 + 1].i;
-            selections -> data[self.resizingSelection + 2].d = self.selectCenterY + (self.selectAnchorY - turtle.mouseY) / 4 / self.textureScaleY * self.imageData -> data[self.imageIndex * 2 + 1].i;
+            selections -> data[self.resizingSelection + 4].d = self.selectEndY + (turtle.mouseY - self.selectAnchorY) / 2 / self.textureScaleY / multiplyX * self.imageData -> data[self.imageIndex * 2 + 1].i;
+            selections -> data[self.resizingSelection + 2].d = self.selectCenterY + (self.selectAnchorY - turtle.mouseY) / 4 / self.textureScaleY / multiplyX * self.imageData -> data[self.imageIndex * 2 + 1].i;
             if (selections -> data[self.resizingSelection + 4].d < labelMinimumHeight) {
                 selections -> data[self.resizingSelection + 4].d = labelMinimumHeight;
                 selections -> data[self.resizingSelection + 2].d = self.selectCenterY + (self.selectEndY - labelMinimumHeight) / 2;
@@ -697,8 +700,8 @@ void render() {
         }
         if (self.resizingDirection == 3 || self.resizingDirection == 4 || self.resizingDirection == 5) {
             /* bottom function */
-            selections -> data[self.resizingSelection + 4].d = self.selectEndY + (self.selectAnchorY - turtle.mouseY) / 2 / self.textureScaleY * self.imageData -> data[self.imageIndex * 2 + 1].i;
-            selections -> data[self.resizingSelection + 2].d = self.selectCenterY + (self.selectAnchorY - turtle.mouseY) / 4 / self.textureScaleY * self.imageData -> data[self.imageIndex * 2 + 1].i;
+            selections -> data[self.resizingSelection + 4].d = self.selectEndY + (self.selectAnchorY - turtle.mouseY) / 2 / self.textureScaleY / multiplyX * self.imageData -> data[self.imageIndex * 2 + 1].i;
+            selections -> data[self.resizingSelection + 2].d = self.selectCenterY + (self.selectAnchorY - turtle.mouseY) / 4 / self.textureScaleY / multiplyX * self.imageData -> data[self.imageIndex * 2 + 1].i;
             if (selections -> data[self.resizingSelection + 4].d < labelMinimumHeight) {
                 selections -> data[self.resizingSelection + 4].d = labelMinimumHeight;
                 selections -> data[self.resizingSelection + 2].d = self.selectCenterY - (self.selectEndY - labelMinimumHeight) / 2;
@@ -711,8 +714,8 @@ void render() {
         }
         if (self.resizingDirection == 5 || self.resizingDirection == 6 || self.resizingDirection == 7) {
             /* left function */
-            selections -> data[self.resizingSelection + 3].d = self.selectEndX + (self.selectAnchorX - turtle.mouseX) / 2 / self.textureScaleX * self.imageData -> data[self.imageIndex * 2].i;
-            selections -> data[self.resizingSelection + 1].d = self.selectCenterX + (turtle.mouseX - self.selectAnchorX) / 4 / self.textureScaleX * self.imageData -> data[self.imageIndex * 2].i;
+            selections -> data[self.resizingSelection + 3].d = self.selectEndX + (self.selectAnchorX - turtle.mouseX) / 2 / self.textureScaleX / multiplyY * self.imageData -> data[self.imageIndex * 2].i;
+            selections -> data[self.resizingSelection + 1].d = self.selectCenterX + (turtle.mouseX - self.selectAnchorX) / 4 / self.textureScaleX / multiplyY * self.imageData -> data[self.imageIndex * 2].i;
             if (selections -> data[self.resizingSelection + 3].d < labelMinimumWidth) {
                 selections -> data[self.resizingSelection + 3].d = labelMinimumWidth;
                 selections -> data[self.resizingSelection + 1].d = self.selectCenterX + (self.selectEndX - labelMinimumWidth) / 2;
@@ -725,8 +728,8 @@ void render() {
         }
         if (self.resizingDirection == 1 || self.resizingDirection == 2 || self.resizingDirection == 3) {
             /* right function */
-            selections -> data[self.resizingSelection + 3].d = self.selectEndX + (turtle.mouseX - self.selectAnchorX) / 2 / self.textureScaleX * self.imageData -> data[self.imageIndex * 2].i;
-            selections -> data[self.resizingSelection + 1].d = self.selectCenterX + (turtle.mouseX - self.selectAnchorX) / 4 / self.textureScaleX * self.imageData -> data[self.imageIndex * 2].i;
+            selections -> data[self.resizingSelection + 3].d = self.selectEndX + (turtle.mouseX - self.selectAnchorX) / 2 / self.textureScaleX / multiplyY * self.imageData -> data[self.imageIndex * 2].i;
+            selections -> data[self.resizingSelection + 1].d = self.selectCenterX + (turtle.mouseX - self.selectAnchorX) / 4 / self.textureScaleX / multiplyY * self.imageData -> data[self.imageIndex * 2].i;
             if (selections -> data[self.resizingSelection + 3].d < labelMinimumWidth) {
                 selections -> data[self.resizingSelection + 3].d = labelMinimumWidth;
                 selections -> data[self.resizingSelection + 1].d = self.selectCenterX - (self.selectEndX - labelMinimumWidth) / 2;
