@@ -10,17 +10,18 @@ TODO:
 Cut off UI elements
 File overwrite prompt not working
 Unicode truncate text function not implemented
+Can't see relevant files when choosing folder
 import arbitrary image files (resize?) - maintain aspect ratio
 include statistics (number of labels, distribution, number of images)
 
 train model? no.
 */
 
-/* resolution of images (program will automatically convert any images to these) */
+/* resolution of images (pixels) (program will automatically convert any images to these) */
 const int32_t imageWidth = 640;
 const int32_t imageHeight = 640;
 
-/* minimum height of labels (in pixels) */
+/* minimum height of labels (in pixels, relative to the original size of the image) */
 const double labelMinimumWidth  = 20;
 const double labelMinimumHeight = 20;
 
@@ -654,8 +655,8 @@ void render() {
         if (selections -> data[self.movingSelection + 1].d - selections -> data[self.movingSelection + 3].d / 2 < 0) {
             selections -> data[self.movingSelection + 1].d = selections -> data[self.movingSelection + 3].d / 2;
         }
-        if (selections -> data[self.movingSelection + 2].d + selections -> data[self.movingSelection + 4].d / 2 > self.imageData -> data[self.imageIndex * 2].i) {
-            selections -> data[self.movingSelection + 2].d = self.imageData -> data[self.imageIndex * 2].i - selections -> data[self.movingSelection + 4].d / 2;
+        if (selections -> data[self.movingSelection + 2].d + selections -> data[self.movingSelection + 4].d / 2 > self.imageData -> data[self.imageIndex * 2 + 1].i) {
+            selections -> data[self.movingSelection + 2].d = self.imageData -> data[self.imageIndex * 2 + 1].i - selections -> data[self.movingSelection + 4].d / 2;
         }
         if (selections -> data[self.movingSelection + 2].d - selections -> data[self.movingSelection + 4].d / 2 < 0) {
             selections -> data[self.movingSelection + 2].d = selections -> data[self.movingSelection + 4].d / 2;
@@ -671,9 +672,9 @@ void render() {
                 selections -> data[self.resizingSelection + 2].d = self.selectCenterY + (self.selectEndY - labelMinimumHeight) / 2;
             }
             if (selections -> data[self.resizingSelection + 2].d - selections -> data[self.resizingSelection + 4].d / 2 < 0) {
-                double topBar = selections -> data[self.resizingSelection + 2].d + selections -> data[self.resizingSelection + 4].d / 2;
-                selections -> data[self.resizingSelection + 4].d = topBar;
-                selections -> data[self.resizingSelection + 2].d = topBar / 2;
+                double bottomBar = selections -> data[self.resizingSelection + 2].d + selections -> data[self.resizingSelection + 4].d / 2;
+                selections -> data[self.resizingSelection + 4].d = bottomBar;
+                selections -> data[self.resizingSelection + 2].d = bottomBar / 2;
             }
         }
         if (self.resizingDirection == 3 || self.resizingDirection == 4 || self.resizingDirection == 5) {
@@ -685,9 +686,9 @@ void render() {
                 selections -> data[self.resizingSelection + 2].d = self.selectCenterY - (self.selectEndY - labelMinimumHeight) / 2;
             }
             if (selections -> data[self.resizingSelection + 2].d + selections -> data[self.resizingSelection + 4].d / 2 > self.imageData -> data[self.imageIndex * 2 + 1].i) {
-                double bottomBar = selections -> data[self.resizingSelection + 2].d - selections -> data[self.resizingSelection + 4].d / 2;
-                selections -> data[self.resizingSelection + 4].d = self.imageData -> data[self.imageIndex * 2 + 1].i - bottomBar;
-                selections -> data[self.resizingSelection + 2].d = (bottomBar + self.imageData -> data[self.imageIndex * 2 + 1].i) / 2;
+                double topBar = selections -> data[self.resizingSelection + 2].d - selections -> data[self.resizingSelection + 4].d / 2;
+                selections -> data[self.resizingSelection + 4].d = self.imageData -> data[self.imageIndex * 2 + 1].i - topBar;
+                selections -> data[self.resizingSelection + 2].d = (topBar + self.imageData -> data[self.imageIndex * 2 + 1].i) / 2;
             }
         }
         if (self.resizingDirection == 5 || self.resizingDirection == 6 || self.resizingDirection == 7) {
@@ -765,6 +766,7 @@ void importLabels(char *filename) {
     char line[1024];
     int32_t iter = 0;
     int32_t discoveredIndex = -1;
+    int8_t skippingEntry = 0;
     while (fgets(line, 1024, fp) != NULL) {
         if (iter == 0) {
             char checkHold[20] = {0};
@@ -804,10 +806,16 @@ void importLabels(char *filename) {
             }
             if (discoveredIndex == -1) {
                 printf("importLabels: Could not find image %s\n", parsedImageName);
+                skippingEntry = 1;
                 iter++;
                 continue;
+            } else {
+                skippingEntry = 0;
             }
         } else {
+            if (skippingEntry) {
+                continue;
+            }
             if (discoveredIndex == -1) {
                 /* assume in header stage */
                 char labelName[48];

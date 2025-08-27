@@ -6,7 +6,7 @@ A tool for labelling images for object detection models
 
 Run the `imageLabel.exe` program. This program is fully portable and can be downloaded and run alone.
 
-To load a dataset, Go to `File -> Import Images`. This will prompt you to select a folder. The folder should contain the dataset, images of types png, jpg, and bmp are supported.
+To load a dataset, Go to `File -> Import Images`. This will prompt you to select a folder. The folder should contain the dataset which are images of types png, jpg, or bmp.
 
 You can then label the images by clicking and dragging with the mouse.
 
