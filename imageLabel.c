@@ -7,12 +7,12 @@
 
 /*
 TODO:
-Cut off UI elements
 File overwrite prompt not working
 Unicode truncate text function not implemented
 Can't see relevant files when choosing folder
-loading bar when importing images
-include statistics (number of labels, distribution, number of images)
+Make some UI still work when no images loaded
+Include statistics (number of labels, distribution, number of images)
+Rare error of deleting label name when editing a different label name (and maximum characters reached?)
 
 train model? no.
 */
@@ -265,12 +265,19 @@ void textureInit(const char *filepath) {
         } else {
             printf("textureInit: Could not load image: %s\n", filename);
         }
+        /*
+        this fixes the texture loading that calling turtleUpdate broke, we have to generate mipmaps every loop - it doesn't seem to affect performance much, but
+        I'm not sure if this has to be done because we overwrite the resizedData before it gets to the GPU (I assumed that glTexSubImage3D puts it on the GPU)
+        
+        I have no idea why this is necessary only when we update in this loop - previously it could be called once after the loop but if you turtleUpdate inside the
+        loop you have to do this every time (before the turtleUpdate too). Seems that calling turtleUpdate deletes all GPU memory (maybe because I glClearBuffers - actually it's highly likely that that's why)
+        */
+        glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
         loadingTextures++;
         turtleRectangle(-310, -175, -310 + loadingTextures / files -> length * 2 * 620, -165);
-        // turtleUpdate(); // breaks texture loading??
+        turtleUpdate(); // breaks texture loading??
     }
     free(resizedData);
-    glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
     if (self.imageNames -> length > 1) {
         setImageIndex(1);
     }
