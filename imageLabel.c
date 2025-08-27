@@ -106,8 +106,8 @@ void init() {
 
     self.leftButtonVar = 0;
     self.rightButtonVar = 0;
-    self.leftButton = buttonInit("< NULL", &self.leftButtonVar, self.imageX - self.textureScaleX, self.imageY - self.textureScaleY - 10, 10);
-    self.rightButton = buttonInit("NULL >", &self.rightButtonVar, self.imageX + self.textureScaleX, self.imageY - self.textureScaleY - 10, 10);
+    self.leftButton = buttonInit("< NULL", &self.leftButtonVar, self.imageX - self.textureScaleX + 21, self.imageY - self.textureScaleY - 10, 10);
+    self.rightButton = buttonInit("NULL >", &self.rightButtonVar, self.imageX + self.textureScaleX - 21, self.imageY - self.textureScaleY - 10, 10);
     self.leftButton -> shape = TT_BUTTON_SHAPE_TEXT;
     self.rightButton -> shape = TT_BUTTON_SHAPE_TEXT;
     self.newLabelButtonVar = 0;
@@ -333,8 +333,86 @@ void setCurrentLabel(int32_t value) {
 
 /* render loop */
 void render() {
+    /* always allow label UI to be interacted with */
+    if (self.newLabelButtonVar || (turtleKeyPressed(GLFW_KEY_ENTER) && self.newLabelTextboxLastStatus > 0)) {
+        if (strlen(self.newLabelTextbox -> text) > 0) {
+            list_append(self.labelNames, (unitype) self.newLabelTextbox -> text, 's');
+            if (self.labelColors -> length < self.labelNames -> length * 3) {
+                list_append(self.labelColors, (unitype) 255.0, 'd');
+                list_append(self.labelColors, (unitype) 255.0, 'd');
+                list_append(self.labelColors, (unitype) 255.0, 'd');
+            }
+            self.newLabelTextbox -> text[0] = '\0';
+            setCurrentLabel(self.labelNames -> length - 1);
+        }
+        self.newLabelButtonVar = 0;
+    }
+    self.newLabelTextboxLastStatus = self.newLabelTextbox -> status;
+    int32_t labelHovering = 0;
+    for (int32_t i = 1; i < self.labelNames -> length; i++) {
+        double xpos = self.imageX + self.textureScaleX + 20;
+        double ypos = self.imageY + self.textureScaleY - 13 * i - 28;
+        if (turtle.mouseX >= xpos - 5 && turtle.mouseX <= xpos + 110 && turtle.mouseY >= ypos - 6.3 && turtle.mouseY <= ypos + 6.3) {
+            turtlePenColor(self.labelColors -> data[i * 3].d * 0.8, self.labelColors -> data[i * 3 + 1].d * 0.8, self.labelColors -> data[i * 3 + 2].d * 0.8);
+            turtleTextWriteUnicode((unsigned char *) self.labelNames -> data[i].s, xpos, ypos, 12, 0);
+            labelHovering = i;
+        } else {
+            turtlePenColor(self.labelColors -> data[i * 3].d, self.labelColors -> data[i * 3 + 1].d, self.labelColors -> data[i * 3 + 2].d);
+            turtleTextWriteUnicode((unsigned char *) self.labelNames -> data[i].s, xpos, ypos, 10, 0);
+        }
+    }
+    if (turtleMouseDown()) {
+        if (labelHovering > 0) {
+            /* switch currentLabel */
+            setCurrentLabel(labelHovering);
+        }
+    }
+    if (self.currentLabel > 0) {
+        tt_setColor(TT_COLOR_TEXT);
+        turtleRectangle(self.imageX + self.textureScaleX + 210 - 80, -180, self.imageX + self.textureScaleX + 210 + 80, 180);
+        turtlePenColor(self.labelColors -> data[self.currentLabel * 3].d, self.labelColors -> data[self.currentLabel * 3 + 1].d, self.labelColors -> data[self.currentLabel * 3 + 2].d);
+        turtleTextWriteString(">", self.imageX + self.textureScaleX + 6.7, self.imageY + self.textureScaleY - 13 * self.currentLabel - 28, 10, 0);
+        /* render label editing UI */
+        self.labelRGB[0] -> enabled = TT_ELEMENT_ENABLED;
+        self.labelRGB[1] -> enabled = TT_ELEMENT_ENABLED;
+        self.labelRGB[2] -> enabled = TT_ELEMENT_ENABLED;
+        self.renameLabelTextbox -> enabled = TT_ELEMENT_ENABLED;
+        self.deleteLabelButton -> enabled = TT_ELEMENT_ENABLED;
+        self.labelColors -> data[self.currentLabel * 3].d = self.labelRGBValue[0];
+        self.labelColors -> data[self.currentLabel * 3 + 1].d = self.labelRGBValue[1];
+        self.labelColors -> data[self.currentLabel * 3 + 2].d = self.labelRGBValue[2];
+        if (self.renameLabelTextbox -> status > 0) {
+            strcpy(self.labelNames -> data[self.currentLabel].s, self.renameLabelTextbox -> text);
+            char deleteButtonStr[128] = "Delete ";
+            strcat(deleteButtonStr, self.labelNames -> data[self.currentLabel].s);
+            strcpy(self.deleteLabelButton -> label, deleteButtonStr);
+            /* cap textbox text length */
+            if (turtleTextGetUnicodeLength((unsigned char *) self.renameLabelTextbox -> text, self.deleteLabelButton -> size - 1) > 85) {
+                self.renameLabelTextbox -> maxCharacters = strlen(self.renameLabelTextbox -> text);
+            } else {
+                self.renameLabelTextbox -> maxCharacters = 32;
+            }
+        }
+        if (self.deleteLabelButtonVar) {
+            /* delete label */
+            list_delete(self.labelNames, self.currentLabel);
+            list_delete(self.labelColors, self.currentLabel * 3);
+            list_delete(self.labelColors, self.currentLabel * 3);
+            list_delete(self.labelColors, self.currentLabel * 3);
+            setCurrentLabel(0);
+            self.deleteLabelButtonVar = 0;
+        }
+    } else {
+        self.labelRGB[0] -> enabled = TT_ELEMENT_HIDE;
+        self.labelRGB[1] -> enabled = TT_ELEMENT_HIDE;
+        self.labelRGB[2] -> enabled = TT_ELEMENT_HIDE;
+        self.renameLabelTextbox -> enabled = TT_ELEMENT_HIDE;
+        self.deleteLabelButton -> enabled = TT_ELEMENT_HIDE;
+    }
     /* crash guard */
     if (self.imageIndex < 0) {
+        tt_setColor(TT_COLOR_POPUP_BOX);
+        turtleRectangle(self.imageX - self.textureScaleX, self.imageY - self.textureScaleY, self.imageX + self.textureScaleX, self.imageY + self.textureScaleY);
         tt_setColor(TT_COLOR_TEXT);
         turtleTextWriteString("No dataset loaded.", self.imageX, self.imageY + 20, 15, 50);
         turtleTextWriteString("Import dataset using File -> Import Images", self.imageX, self.imageY - 5, 7, 50);
@@ -378,20 +456,6 @@ void render() {
     } else {
         self.keys[IMAGE_KEYS_RIGHT] = 0;
     }
-    if (self.newLabelButtonVar || (turtleKeyPressed(GLFW_KEY_ENTER) && self.newLabelTextboxLastStatus > 0)) {
-        if (strlen(self.newLabelTextbox -> text) > 0) {
-            list_append(self.labelNames, (unitype) self.newLabelTextbox -> text, 's');
-            if (self.labelColors -> length < self.labelNames -> length * 3) {
-                list_append(self.labelColors, (unitype) 255.0, 'd');
-                list_append(self.labelColors, (unitype) 255.0, 'd');
-                list_append(self.labelColors, (unitype) 255.0, 'd');
-            }
-            self.newLabelTextbox -> text[0] = '\0';
-            setCurrentLabel(self.labelNames -> length - 1);
-        }
-        self.newLabelButtonVar = 0;
-    }
-    self.newLabelTextboxLastStatus = self.newLabelTextbox -> status;
     /* render image */
     tt_setColor(TT_COLOR_POPUP_BOX);
     turtleRectangle(self.imageX - self.textureScaleX, self.imageY - self.textureScaleY, self.imageX + self.textureScaleX, self.imageY + self.textureScaleY);
@@ -472,61 +536,6 @@ void render() {
     /* render UI */
     tt_setColor(TT_COLOR_TEXT);
     turtleTextWriteUnicode((unsigned char *) self.imageNames -> data[self.imageIndex].s, self.imageX, self.imageY + self.textureScaleY + 11, 10, 50);
-    int32_t labelHovering = 0;
-    for (int32_t i = 1; i < self.labelNames -> length; i++) {
-        double xpos = self.imageX + self.textureScaleX + 20;
-        double ypos = self.imageY + self.textureScaleY - 13 * i - 28;
-        if (turtle.mouseX >= xpos - 5 && turtle.mouseX <= xpos + 110 && turtle.mouseY >= ypos - 6.3 && turtle.mouseY <= ypos + 6.3) {
-            turtlePenColor(self.labelColors -> data[i * 3].d * 0.8, self.labelColors -> data[i * 3 + 1].d * 0.8, self.labelColors -> data[i * 3 + 2].d * 0.8);
-            turtleTextWriteUnicode((unsigned char *) self.labelNames -> data[i].s, xpos, ypos, 12, 0);
-            labelHovering = i;
-        } else {
-            turtlePenColor(self.labelColors -> data[i * 3].d, self.labelColors -> data[i * 3 + 1].d, self.labelColors -> data[i * 3 + 2].d);
-            turtleTextWriteUnicode((unsigned char *) self.labelNames -> data[i].s, xpos, ypos, 10, 0);
-        }
-    }
-    if (self.currentLabel > 0) {
-        tt_setColor(TT_COLOR_TEXT);
-        turtleRectangle(self.imageX + self.textureScaleX + 210 - 80, -180, self.imageX + self.textureScaleX + 210 + 80, 180);
-        turtlePenColor(self.labelColors -> data[self.currentLabel * 3].d, self.labelColors -> data[self.currentLabel * 3 + 1].d, self.labelColors -> data[self.currentLabel * 3 + 2].d);
-        turtleTextWriteString(">", self.imageX + self.textureScaleX + 6.7, self.imageY + self.textureScaleY - 13 * self.currentLabel - 28, 10, 0);
-        /* render label editing UI */
-        self.labelRGB[0] -> enabled = TT_ELEMENT_ENABLED;
-        self.labelRGB[1] -> enabled = TT_ELEMENT_ENABLED;
-        self.labelRGB[2] -> enabled = TT_ELEMENT_ENABLED;
-        self.renameLabelTextbox -> enabled = TT_ELEMENT_ENABLED;
-        self.deleteLabelButton -> enabled = TT_ELEMENT_ENABLED;
-        self.labelColors -> data[self.currentLabel * 3].d = self.labelRGBValue[0];
-        self.labelColors -> data[self.currentLabel * 3 + 1].d = self.labelRGBValue[1];
-        self.labelColors -> data[self.currentLabel * 3 + 2].d = self.labelRGBValue[2];
-        if (self.renameLabelTextbox -> status > 0) {
-            strcpy(self.labelNames -> data[self.currentLabel].s, self.renameLabelTextbox -> text);
-            char deleteButtonStr[128] = "Delete ";
-            strcat(deleteButtonStr, self.labelNames -> data[self.currentLabel].s);
-            strcpy(self.deleteLabelButton -> label, deleteButtonStr);
-            /* cap textbox text length */
-            if (turtleTextGetUnicodeLength((unsigned char *) self.renameLabelTextbox -> text, self.deleteLabelButton -> size - 1) > 85) {
-                self.renameLabelTextbox -> maxCharacters = strlen(self.renameLabelTextbox -> text);
-            } else {
-                self.renameLabelTextbox -> maxCharacters = 32;
-            }
-        }
-        if (self.deleteLabelButtonVar) {
-            /* delete label */
-            list_delete(self.labelNames, self.currentLabel);
-            list_delete(self.labelColors, self.currentLabel * 3);
-            list_delete(self.labelColors, self.currentLabel * 3);
-            list_delete(self.labelColors, self.currentLabel * 3);
-            setCurrentLabel(0);
-            self.deleteLabelButtonVar = 0;
-        }
-    } else {
-        self.labelRGB[0] -> enabled = TT_ELEMENT_HIDE;
-        self.labelRGB[1] -> enabled = TT_ELEMENT_HIDE;
-        self.labelRGB[2] -> enabled = TT_ELEMENT_HIDE;
-        self.renameLabelTextbox -> enabled = TT_ELEMENT_HIDE;
-        self.deleteLabelButton -> enabled = TT_ELEMENT_HIDE;
-    }
     /* mouse functions */
     if (canvasLabelHover == -1) {
         if (turtle.mouseX >= self.imageX - self.textureScaleX && turtle.mouseX <= self.imageX + self.textureScaleX && turtle.mouseY >= self.imageY - self.textureScaleY && turtle.mouseY <= self.imageY + self.textureScaleY) {
@@ -580,10 +589,6 @@ void render() {
                 self.selecting = 1;
                 self.selectAnchorX = turtle.mouseX;
                 self.selectAnchorY = turtle.mouseY;
-            }
-            if (labelHovering > 0) {
-                /* switch currentLabel */
-                setCurrentLabel(labelHovering);
             }
         }
     } else {
