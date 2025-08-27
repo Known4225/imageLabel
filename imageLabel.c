@@ -81,7 +81,7 @@ void init() {
     list_append(self.imageData, (unitype) 0, 'i');
     list_append(self.imageData, (unitype) 0, 'i');
     list_append(self.labels, (unitype) list_init(), 'r');
-    list_append(self.labelNames, (unitype) "null", 's');
+    list_append(self.labelNames, (unitype) "null", 's'); // this class is reserved as default, for when you create a box without having selected a class
     list_append(self.labelNames, (unitype) "label1", 's');
     list_append(self.labelNames, (unitype) "label2", 's');
     list_append(self.labelNames, (unitype) "label3", 's');
@@ -298,7 +298,7 @@ void saveLabelFile(char *filename) {
             fprintf(labelfp, "/* labels for %s */\n", self.imageNames -> data[i].s);
         }
         for (int32_t j = 0; j < selections -> length; j += 5) {
-            fprintf(labelfp, "%d %d %d %d %d\n", selections -> data[j].i, (int32_t) selections -> data[j + 1].d, (int32_t) selections -> data[j + 2].d, (int32_t) selections -> data[j + 3].d, (int32_t) selections -> data[j + 4].d);
+            fprintf(labelfp, "%d %d %d %d %d\n", selections -> data[j].i - 1, (int32_t) selections -> data[j + 1].d, (int32_t) selections -> data[j + 2].d, (int32_t) selections -> data[j + 3].d, (int32_t) selections -> data[j + 4].d);
         }
     }
     fclose(labelfp);
@@ -828,7 +828,7 @@ void importLabels(char *filename) {
                     printf("importLabels: Invalid class on line %d\n", iter);
                     return;
                 }
-                list_append(self.labels -> data[discoveredIndex].r, (unitype) class, 'i');
+                list_append(self.labels -> data[discoveredIndex].r, (unitype) (class + 1), 'i');
                 list_append(self.labels -> data[discoveredIndex].r, (unitype) centerX, 'd');
                 list_append(self.labels -> data[discoveredIndex].r, (unitype) centerY, 'd');
                 list_append(self.labels -> data[discoveredIndex].r, (unitype) width, 'd');
@@ -874,8 +874,17 @@ void importLabelsFolder(char *folderpath) {
             int32_t class;
             double centerX, centerY, width, height;
             sscanf(line, "%d %lf %lf %lf %lf\n", &class, &centerX, &centerY, &width, &height);
-            // printf("%d %lf %lf %lf %lf\n", class, centerX, centerY, width, height);
-            list_append(self.labels -> data[foundImage].r, (unitype) class, 'i');
+            while (class < self.labelNames -> length) {
+                char newLabel[16];
+                sprintf(newLabel, "label %d", &self.labelNames -> length);
+                list_append(self.labelNames, (unitype) newLabel, 's');
+                if (self.labelColors -> length < self.labelNames -> length * 3) {
+                    list_append(self.labelColors, (unitype) (double) 255.0, 'd');
+                    list_append(self.labelColors, (unitype) (double) 255.0, 'd');
+                    list_append(self.labelColors, (unitype) (double) 255.0, 'd');
+                }
+            }
+            list_append(self.labels -> data[foundImage].r, (unitype) (class + 1), 'i');
             list_append(self.labels -> data[foundImage].r, (unitype) (centerX * self.imageData -> data[foundImage * 2].i), 'd');
             list_append(self.labels -> data[foundImage].r, (unitype) (centerY * self.imageData -> data[foundImage * 2 + 1].i), 'd');
             list_append(self.labels -> data[foundImage].r, (unitype) (width * self.imageData -> data[foundImage * 2].i), 'd');
@@ -904,7 +913,7 @@ void exportLabels(char *folderpath) {
         FILE *fp = fopen(name, "w");
         list_t *selections = self.labels -> data[i].r;
         for (int32_t j = 0; j < selections -> length; j += 5) {
-            fprintf(fp, "%d %lf %lf %lf %lf\n", selections -> data[j].i, selections -> data[j + 1].d / self.imageData -> data[i * 2].i, selections -> data[j + 2].d / self.imageData -> data[i * 2 + 1].i, selections -> data[j + 3].d / self.imageData -> data[i * 2].i, selections -> data[j + 4].d / self.imageData -> data[i * 2 + 1].i);
+            fprintf(fp, "%d %lf %lf %lf %lf\n", selections -> data[j].i - 1, selections -> data[j + 1].d / self.imageData -> data[i * 2].i, selections -> data[j + 2].d / self.imageData -> data[i * 2 + 1].i, selections -> data[j + 3].d / self.imageData -> data[i * 2].i, selections -> data[j + 4].d / self.imageData -> data[i * 2 + 1].i);
         }
         fclose(fp);
     }
