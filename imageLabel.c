@@ -579,10 +579,10 @@ void render() {
             self.keys[IMAGE_KEYS_LMB] = 0;
             if (self.selecting) {
                 /* end selection */
-                double centerX = (((self.selectAnchorX + self.selectEndX) / 2 - self.imageX) / self.textureScaleX + 1) * self.imageData -> data[self.imageIndex * 2].i * 0.5;
-                double centerY = ((self.imageY - (self.selectAnchorY + self.selectEndY) / 2) / self.textureScaleY + 1) * self.imageData -> data[self.imageIndex * 2 + 1].i * 0.5;
-                double width = fabs(self.selectAnchorX - self.selectEndX) / self.textureScaleX * self.imageData -> data[self.imageIndex * 2].i / 2;
-                double height = fabs(self.selectAnchorY - self.selectEndY) / self.textureScaleY * self.imageData -> data[self.imageIndex * 2 + 1].i / 2;
+                double centerX = (((self.selectAnchorX + self.selectEndX) / 2 - self.imageX) / (self.textureScaleX * multiplyY) + 1) * self.imageData -> data[self.imageIndex * 2].i * 0.5;
+                double centerY = ((self.imageY - (self.selectAnchorY + self.selectEndY) / 2) / (self.textureScaleY * multiplyX) + 1) * self.imageData -> data[self.imageIndex * 2 + 1].i * 0.5;
+                double width = fabs(self.selectAnchorX - self.selectEndX) / (self.textureScaleX * multiplyY) * self.imageData -> data[self.imageIndex * 2].i / 2;
+                double height = fabs(self.selectAnchorY - self.selectEndY) / (self.textureScaleY * multiplyX) * self.imageData -> data[self.imageIndex * 2 + 1].i / 2;
                 if (width > 4 && height > 4) { // lower requirement on creating width and height just so it isn't too awkward
                     list_append(selections, (unitype) self.currentLabel, 'i');
                     list_append(selections, (unitype) centerX, 'd');
