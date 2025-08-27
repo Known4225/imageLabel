@@ -1,9 +1,7 @@
 #define TURTLE_ENABLE_TEXTURES
 #define TURTLE_IMPLEMENTATION
 #include "turtle.h"
-#define STB_IMAGE_IMPLEMENTATION
 #include "include/stb_image.h" // THANK YOU https://github.com/nothings/stb
-#define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include "include/stb_image_resize2.h" // https://github.com/nothings/stb
 #include <time.h>
 
@@ -170,6 +168,28 @@ void init() {
     self.currentLabel = 0;
 }
 
+void setImageIndex(int32_t set) {
+    self.imageIndex = set;
+    if (set == -1) {
+        strcpy(self.leftButton -> label, "< NULL");
+        strcpy(self.rightButton -> label, "NULL >");
+    } else {
+        /* change button position and label */
+        int32_t previousImageIndex = self.imageIndex - 1;
+        int32_t nextImageIndex = self.imageIndex + 1;
+        if (previousImageIndex < 1) {
+            previousImageIndex = self.imageNames -> length - 1;
+        }
+        if (nextImageIndex > self.imageNames -> length - 1) {
+            nextImageIndex = 1;
+        }
+        strcpy(self.leftButton -> label, "< ");
+        strcat(self.leftButton -> label, self.imageNames -> data[previousImageIndex].s);
+        strcpy(self.rightButton -> label, self.imageNames -> data[nextImageIndex].s);
+        strcat(self.rightButton -> label, " >");
+    }
+}
+
 void textureInit(const char *filepath) {
     /* clear all image data */
     list_clear(self.imageNames);
@@ -179,6 +199,7 @@ void textureInit(const char *filepath) {
     list_append(self.imageData, (unitype) 0, 'i');
     list_append(self.imageData, (unitype) 0, 'i');
     list_append(self.labels, (unitype) list_init(), 'r');
+    setImageIndex(-1);
     /*
     Notes:
     https://stackoverflow.com/questions/75976623/how-to-use-gl-texture-2d-array-for-binding-multiple-textures-as-array
@@ -227,7 +248,7 @@ void textureInit(const char *filepath) {
     }
     glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
     if (self.imageNames -> length > 1) {
-        self.imageIndex = 1;
+        setImageIndex(1);
     }
     list_free(files);
 }
@@ -313,20 +334,16 @@ void render() {
     if (nextImageIndex > self.imageNames -> length - 1) {
         nextImageIndex = 1;
     }
-    strcpy(self.leftButton -> label, "< ");
-    strcat(self.leftButton -> label, self.imageNames -> data[previousImageIndex].s);
-    strcpy(self.rightButton -> label, self.imageNames -> data[nextImageIndex].s);
-    strcat(self.rightButton -> label, " >");
     self.leftButton -> x = self.imageX - self.textureScaleX + turtleTextGetUnicodeLength((unsigned char *) self.leftButton -> label, 9) / 2;
     self.rightButton -> x = self.imageX + self.textureScaleX - turtleTextGetUnicodeLength((unsigned char *) self.rightButton -> label, 9) / 2;
     /* button and arrow key functionality */
     if (turtleKeyPressed(GLFW_KEY_LEFT) || self.leftButtonVar) {
         if (self.keys[IMAGE_KEYS_LEFT] == 0) {
             self.keys[IMAGE_KEYS_LEFT] = 70;
-            self.imageIndex = previousImageIndex;
+            setImageIndex(previousImageIndex);
         } else if (self.keys[IMAGE_KEYS_LEFT] == 1) {
             self.keys[IMAGE_KEYS_LEFT] = 4;
-            self.imageIndex = previousImageIndex;
+            setImageIndex(previousImageIndex);
         } else {
             self.keys[IMAGE_KEYS_LEFT]--;
         }
@@ -336,10 +353,10 @@ void render() {
     if (turtleKeyPressed(GLFW_KEY_RIGHT) || self.rightButtonVar) {
         if (self.keys[IMAGE_KEYS_RIGHT] == 0) {
             self.keys[IMAGE_KEYS_RIGHT] = 70;
-            self.imageIndex = nextImageIndex;
+            setImageIndex(nextImageIndex);
         } else if (self.keys[IMAGE_KEYS_RIGHT] == 1) {
             self.keys[IMAGE_KEYS_RIGHT] = 4;
-            self.imageIndex = nextImageIndex;
+            setImageIndex(nextImageIndex);
         } else {
             self.keys[IMAGE_KEYS_RIGHT]--;
         }
@@ -370,7 +387,7 @@ void render() {
         turtlePenColor(self.labelColors -> data[selections -> data[i].i * 3].d, self.labelColors -> data[selections -> data[i].i * 3 + 1].d, self.labelColors -> data[selections -> data[i].i * 3 + 2].d);
         turtlePenSize(1);
         double centerX = (selections -> data[i + 1].d / self.imageData -> data[self.imageIndex * 2].i * 2 - 1) * self.textureScaleX + self.imageX;
-        double centerY = (selections -> data[i + 2].d / self.imageData -> data[self.imageIndex * 2 + 1].i * 2 - 1) * self.textureScaleY + self.imageY;
+        double centerY = (selections -> data[i + 2].d / self.imageData -> data[self.imageIndex * 2 + 1].i * 2 - 1) * -self.textureScaleY + self.imageY;
         double width = selections -> data[i + 3].d / self.imageData -> data[self.imageIndex * 2].i * self.textureScaleX; // actually half of the width
         double height = selections -> data[i + 4].d / self.imageData -> data[self.imageIndex * 2 + 1].i * self.textureScaleY; // actually half of the height
         turtleGoto(centerX - width, centerY - height);
@@ -542,7 +559,7 @@ void render() {
             if (self.selecting) {
                 /* end selection */
                 double centerX = (((self.selectAnchorX + self.selectEndX) / 2 - self.imageX) / self.textureScaleX + 1) * self.imageData -> data[self.imageIndex * 2].i * 0.5;
-                double centerY = (((self.selectAnchorY + self.selectEndY) / 2 - self.imageY) / self.textureScaleY + 1) * self.imageData -> data[self.imageIndex * 2 + 1].i * 0.5;
+                double centerY = ((self.imageY - (self.selectAnchorY + self.selectEndY) / 2) / self.textureScaleY + 1) * self.imageData -> data[self.imageIndex * 2 + 1].i * 0.5;
                 double width = fabs(self.selectAnchorX - self.selectEndX) / self.textureScaleX * self.imageData -> data[self.imageIndex * 2].i / 2;
                 double height = fabs(self.selectAnchorY - self.selectEndY) / self.textureScaleY * self.imageData -> data[self.imageIndex * 2 + 1].i / 2;
                 if (width > 4 && height > 4) { // lower requirement on creating width and height just so it isn't too awkward
@@ -631,7 +648,7 @@ void render() {
         turtlePenUp();
     } else if (self.movingSelection > -1) {
         selections -> data[self.movingSelection + 1].d = self.selectEndX + ((turtle.mouseX - self.selectAnchorX) / self.textureScaleX) * self.imageData -> data[self.imageIndex * 2].i * 0.5;
-        selections -> data[self.movingSelection + 2].d = self.selectEndY + ((turtle.mouseY - self.selectAnchorY) / self.textureScaleY) * self.imageData -> data[self.imageIndex * 2 + 1].i * 0.5;
+        selections -> data[self.movingSelection + 2].d = self.selectEndY + ((self.selectAnchorY - turtle.mouseY) / self.textureScaleY) * self.imageData -> data[self.imageIndex * 2 + 1].i * 0.5;
         if (selections -> data[self.movingSelection + 1].d + selections -> data[self.movingSelection + 3].d / 2 > self.imageData -> data[self.imageIndex * 2].i) {
             selections -> data[self.movingSelection + 1].d = self.imageData -> data[self.imageIndex * 2].i - selections -> data[self.movingSelection + 3].d / 2;
         }
@@ -649,21 +666,7 @@ void render() {
         if (self.resizingDirection == 7 || self.resizingDirection == 0 || self.resizingDirection == 1) {
             /* top function */
             selections -> data[self.resizingSelection + 4].d = self.selectEndY + (turtle.mouseY - self.selectAnchorY) / 2 / self.textureScaleY * self.imageData -> data[self.imageIndex * 2 + 1].i;
-            selections -> data[self.resizingSelection + 2].d = self.selectCenterY + (turtle.mouseY - self.selectAnchorY) / 4 / self.textureScaleY * self.imageData -> data[self.imageIndex * 2 + 1].i;
-            if (selections -> data[self.resizingSelection + 4].d < labelMinimumHeight) {
-                selections -> data[self.resizingSelection + 4].d = labelMinimumHeight;
-                selections -> data[self.resizingSelection + 2].d = self.selectCenterY - (self.selectEndY - labelMinimumHeight) / 2;
-            }
-            if (selections -> data[self.resizingSelection + 2].d + selections -> data[self.resizingSelection + 4].d / 2 > self.imageData -> data[self.imageIndex * 2 + 1].i) {
-                double bottomBar = selections -> data[self.resizingSelection + 2].d - selections -> data[self.resizingSelection + 4].d / 2;
-                selections -> data[self.resizingSelection + 4].d = self.imageData -> data[self.imageIndex * 2 + 1].i - bottomBar;
-                selections -> data[self.resizingSelection + 2].d = (bottomBar + self.imageData -> data[self.imageIndex * 2 + 1].i) / 2;
-            }
-        }
-        if (self.resizingDirection == 3 || self.resizingDirection == 4 || self.resizingDirection == 5) {
-            /* bottom function */
-            selections -> data[self.resizingSelection + 4].d = self.selectEndY + (self.selectAnchorY - turtle.mouseY) / 2 / self.textureScaleY * self.imageData -> data[self.imageIndex * 2 + 1].i;
-            selections -> data[self.resizingSelection + 2].d = self.selectCenterY + (turtle.mouseY - self.selectAnchorY) / 4 / self.textureScaleY * self.imageData -> data[self.imageIndex * 2 + 1].i;
+            selections -> data[self.resizingSelection + 2].d = self.selectCenterY + (self.selectAnchorY - turtle.mouseY) / 4 / self.textureScaleY * self.imageData -> data[self.imageIndex * 2 + 1].i;
             if (selections -> data[self.resizingSelection + 4].d < labelMinimumHeight) {
                 selections -> data[self.resizingSelection + 4].d = labelMinimumHeight;
                 selections -> data[self.resizingSelection + 2].d = self.selectCenterY + (self.selectEndY - labelMinimumHeight) / 2;
@@ -672,6 +675,20 @@ void render() {
                 double topBar = selections -> data[self.resizingSelection + 2].d + selections -> data[self.resizingSelection + 4].d / 2;
                 selections -> data[self.resizingSelection + 4].d = topBar;
                 selections -> data[self.resizingSelection + 2].d = topBar / 2;
+            }
+        }
+        if (self.resizingDirection == 3 || self.resizingDirection == 4 || self.resizingDirection == 5) {
+            /* bottom function */
+            selections -> data[self.resizingSelection + 4].d = self.selectEndY + (self.selectAnchorY - turtle.mouseY) / 2 / self.textureScaleY * self.imageData -> data[self.imageIndex * 2 + 1].i;
+            selections -> data[self.resizingSelection + 2].d = self.selectCenterY + (self.selectAnchorY - turtle.mouseY) / 4 / self.textureScaleY * self.imageData -> data[self.imageIndex * 2 + 1].i;
+            if (selections -> data[self.resizingSelection + 4].d < labelMinimumHeight) {
+                selections -> data[self.resizingSelection + 4].d = labelMinimumHeight;
+                selections -> data[self.resizingSelection + 2].d = self.selectCenterY - (self.selectEndY - labelMinimumHeight) / 2;
+            }
+            if (selections -> data[self.resizingSelection + 2].d + selections -> data[self.resizingSelection + 4].d / 2 > self.imageData -> data[self.imageIndex * 2 + 1].i) {
+                double bottomBar = selections -> data[self.resizingSelection + 2].d - selections -> data[self.resizingSelection + 4].d / 2;
+                selections -> data[self.resizingSelection + 4].d = self.imageData -> data[self.imageIndex * 2 + 1].i - bottomBar;
+                selections -> data[self.resizingSelection + 2].d = (bottomBar + self.imageData -> data[self.imageIndex * 2 + 1].i) / 2;
             }
         }
         if (self.resizingDirection == 5 || self.resizingDirection == 6 || self.resizingDirection == 7) {
@@ -738,7 +755,7 @@ void removeExtension(char *file) {
     }
 }
 
-/* import labels from a single file (autosave file format) */
+/* import labels from a single lbl file (autosave file format) */
 void importLabels(char *filename) {
     FILE *fp = fopen(filename, "r");
     char line[1024];
@@ -783,7 +800,7 @@ void importLabels(char *filename) {
             }
             if (discoveredIndex == -1) {
                 printf("importLabels: Could not find image %s\n", parsedImageName);
-                self.imageIndex = -1;
+                setImageIndex(-1);
                 return;
             }
         } else {
