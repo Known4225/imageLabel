@@ -27,6 +27,7 @@ The imageLabel program supports a custom file type called an `lbl` file. This of
 
 - All images are png, jpg, or bmp
 - All images are RGB formatted (no transparency)
+- All images use only ASCII characters in their filename
 - Place all images you want to label in a single folder
 
 # Images

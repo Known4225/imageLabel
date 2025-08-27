@@ -10,7 +10,6 @@ TODO:
 File overwrite prompt not working
 Unicode truncate text function not implemented
 Can't see relevant files when choosing folder
-Make some UI still work when no images loaded
 Include statistics (number of labels, distribution, number of images)
 Rare error of deleting label name when editing a different label name (and maximum characters reached?)
 
@@ -243,7 +242,7 @@ void textureInit(const char *filepath) {
     double loadingTextures = 0;
     tt_setColor(TT_COLOR_POPUP_BOX);
     turtleRectangle(-310, -175, 310, -165);
-    tt_setColor(TT_COLOR_TEXT);
+    tt_setColor(TT_COLOR_TEXT_ALTERNATE);
     /* load all textures */
     for (int i = 0; i < files -> length / 2; i++) {
         strcpy(filename, filepath);
@@ -331,9 +330,7 @@ void setCurrentLabel(int32_t value) {
     strcpy(self.deleteLabelButton -> label, deleteButtonStr);
 }
 
-/* render loop */
-void render() {
-    /* always allow label UI to be interacted with */
+void renderLabelUI() {
     if (self.newLabelButtonVar || (turtleKeyPressed(GLFW_KEY_ENTER) && self.newLabelTextboxLastStatus > 0)) {
         if (strlen(self.newLabelTextbox -> text) > 0) {
             list_append(self.labelNames, (unitype) self.newLabelTextbox -> text, 's');
@@ -409,11 +406,26 @@ void render() {
         self.renameLabelTextbox -> enabled = TT_ELEMENT_HIDE;
         self.deleteLabelButton -> enabled = TT_ELEMENT_HIDE;
     }
+    tt_setColor(TT_COLOR_SLIDER_BAR);
+    if (self.labelRGB[0] -> enabled != TT_ELEMENT_HIDE) {
+        turtleTextWriteString("Red", self.labelRGB[0] -> x - self.labelRGB[0] -> length / 2 - self.labelRGB[0] -> size, self.labelRGB[0] -> y, self.labelRGB[0] -> size - 1, 100);
+        turtleTextWriteStringf(self.labelRGB[0] -> x + self.labelRGB[0] -> length / 2 + self.labelRGB[0] -> size, self.labelRGB[0] -> y, 4, 0, "%d", (int32_t) round(self.labelRGBValue[0]));
+        turtleTextWriteString("Green", self.labelRGB[1] -> x - self.labelRGB[1] -> length / 2 - self.labelRGB[1] -> size, self.labelRGB[1] -> y, self.labelRGB[1] -> size - 1, 100);
+        turtleTextWriteStringf(self.labelRGB[1] -> x + self.labelRGB[1] -> length / 2 + self.labelRGB[1] -> size, self.labelRGB[1] -> y, 4, 0, "%d", (int32_t) round(self.labelRGBValue[1]));
+        turtleTextWriteString("Blue", self.labelRGB[2] -> x - self.labelRGB[2] -> length / 2 - self.labelRGB[2] -> size, self.labelRGB[2] -> y, self.labelRGB[2] -> size - 1, 100);
+        turtleTextWriteStringf(self.labelRGB[2] -> x + self.labelRGB[2] -> length / 2 + self.labelRGB[2] -> size, self.labelRGB[2] -> y, 4, 0, "%d", (int32_t) round(self.labelRGBValue[2]));
+    }
+}
+
+/* render loop */
+void render() {
+    /* always allow label UI to be interacted with */
+    renderLabelUI();
     /* crash guard */
     if (self.imageIndex < 0) {
         tt_setColor(TT_COLOR_POPUP_BOX);
         turtleRectangle(self.imageX - self.textureScaleX, self.imageY - self.textureScaleY, self.imageX + self.textureScaleX, self.imageY + self.textureScaleY);
-        tt_setColor(TT_COLOR_TEXT);
+        tt_setColor(TT_COLOR_TEXT_ALTERNATE);
         turtleTextWriteString("No dataset loaded.", self.imageX, self.imageY + 20, 15, 50);
         turtleTextWriteString("Import dataset using File -> Import Images", self.imageX, self.imageY - 5, 7, 50);
         return;
@@ -1162,16 +1174,7 @@ int main(int argc, char *argv[]) {
         start = clock();
         turtleGetMouseCoords();
         turtleClear();
-        render();
-        tt_setColor(TT_COLOR_SLIDER_BAR);
-        if (self.labelRGB[0] -> enabled != TT_ELEMENT_HIDE) {
-            turtleTextWriteString("Red", self.labelRGB[0] -> x - self.labelRGB[0] -> length / 2 - self.labelRGB[0] -> size, self.labelRGB[0] -> y, self.labelRGB[0] -> size - 1, 100);
-            turtleTextWriteStringf(self.labelRGB[0] -> x + self.labelRGB[0] -> length / 2 + self.labelRGB[0] -> size, self.labelRGB[0] -> y, 4, 0, "%d", (int32_t) round(self.labelRGBValue[0]));
-            turtleTextWriteString("Green", self.labelRGB[1] -> x - self.labelRGB[1] -> length / 2 - self.labelRGB[1] -> size, self.labelRGB[1] -> y, self.labelRGB[1] -> size - 1, 100);
-            turtleTextWriteStringf(self.labelRGB[1] -> x + self.labelRGB[1] -> length / 2 + self.labelRGB[1] -> size, self.labelRGB[1] -> y, 4, 0, "%d", (int32_t) round(self.labelRGBValue[1]));
-            turtleTextWriteString("Blue", self.labelRGB[2] -> x - self.labelRGB[2] -> length / 2 - self.labelRGB[2] -> size, self.labelRGB[2] -> y, self.labelRGB[2] -> size - 1, 100);
-            turtleTextWriteStringf(self.labelRGB[2] -> x + self.labelRGB[2] -> length / 2 + self.labelRGB[2] -> size, self.labelRGB[2] -> y, 4, 0, "%d", (int32_t) round(self.labelRGBValue[2]));
-        }
+        render(); // main loop
         turtleToolsUpdate(); // update turtleTools
         parseRibbonOutput(); // user defined function to use ribbon
         parsePopupOutput(window); // user defined function to use popup
