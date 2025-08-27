@@ -7,6 +7,9 @@
 
 /*
 TODO:
+Cut off UI elements
+File overwrite prompt not working
+Unicode truncate text function not implemented
 import arbitrary image files (resize?) - maintain aspect ratio
 include statistics (number of labels, distribution, number of images)
 
@@ -185,8 +188,20 @@ void setImageIndex(int32_t set) {
         }
         strcpy(self.leftButton -> label, "< ");
         strcat(self.leftButton -> label, self.imageNames -> data[previousImageIndex].s);
+        int32_t formerLength = strlen(self.leftButton -> label);
+        turtleTextTruncateString(self.leftButton -> label, self.leftButton -> size - 1, 120, 1);
+        int32_t newLength = strlen(self.leftButton -> label);
+        if (formerLength != newLength && newLength < TT_LABEL_LENGTH_LIMIT - 4) {
+            strcat(self.leftButton -> label, "...");
+        }
         strcpy(self.rightButton -> label, self.imageNames -> data[nextImageIndex].s);
         strcat(self.rightButton -> label, " >");
+        formerLength = strlen(self.rightButton -> label);
+        turtleTextTruncateString(self.rightButton -> label, self.rightButton -> size - 1, 120, 0);
+        newLength = strlen(self.rightButton -> label);
+        if (formerLength != newLength && newLength < TT_LABEL_LENGTH_LIMIT - 4) {
+            strins(self.rightButton -> label, "...", 0);
+        }
     }
 }
 
@@ -770,7 +785,7 @@ void importLabels(char *filename) {
             char parsedImageName[256];
             int32_t lineLength = strlen(line);
             if (lineLength > 256 + 13) {
-                printf("importLabels: Line %d too long\n", iter);
+                printf("importLabels: Line %d too long\n", iter + 1);
             }
             memcpy(parsedImageName, line + 14, lineLength - 13);
             if (strlen(parsedImageName) < 4) {
@@ -814,7 +829,7 @@ void importLabels(char *filename) {
                 double centerX, centerY, width, height;
                 sscanf(line, "%d %lf %lf %lf %lf\n", &class, &centerX, &centerY, &width, &height);
                 if (class + 1 >= self.labelNames -> length) {
-                    printf("importLabels: Invalid class on line %d\n", iter);
+                    printf("importLabels: Invalid class on line %d, class = %d, length = %d\n", iter + 1, class + 1, self.labelNames -> length);
                     return;
                 }
                 list_append(self.labels -> data[discoveredIndex].r, (unitype) (class + 1), 'i');
@@ -835,6 +850,9 @@ void importLabelsFolder(char *folderpath) {
     for (int32_t i = 0; i < self.labels -> length; i++) {
         list_clear(self.labels -> data[i].r);
     }
+    /* clear labelNames */
+    list_clear(self.labelNames);
+    list_append(self.labelNames, (unitype) "null", 's');
     setCurrentLabel(0);
     list_t *files = osToolsListFiles(folderpath);
     for (int32_t i = 0; i < files -> length; i += 2) {
@@ -868,9 +886,9 @@ void importLabelsFolder(char *folderpath) {
             int32_t class;
             double centerX, centerY, width, height;
             sscanf(line, "%d %lf %lf %lf %lf\n", &class, &centerX, &centerY, &width, &height);
-            while (class + 1 < self.labelNames -> length) {
+            while (class + 1 >= self.labelNames -> length) {
                 char newLabel[16];
-                sprintf(newLabel, "label %d", &self.labelNames -> length);
+                sprintf(newLabel, "label%d", self.labelNames -> length);
                 list_append(self.labelNames, (unitype) newLabel, 's');
                 if (self.labelColors -> length < self.labelNames -> length * 3) {
                     list_append(self.labelColors, (unitype) (double) 255.0, 'd');
