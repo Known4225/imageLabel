@@ -11,7 +11,6 @@ Cut off UI elements
 File overwrite prompt not working
 Unicode truncate text function not implemented
 Can't see relevant files when choosing folder
-Fix boxes on images with special aspect ratios
 loading bar when importing images
 include statistics (number of labels, distribution, number of images)
 
@@ -498,6 +497,12 @@ void render() {
             char deleteButtonStr[128] = "Delete ";
             strcat(deleteButtonStr, self.labelNames -> data[self.currentLabel].s);
             strcpy(self.deleteLabelButton -> label, deleteButtonStr);
+            /* cap textbox text length */
+            if (turtleTextGetUnicodeLength((unsigned char *) self.renameLabelTextbox -> text, self.deleteLabelButton -> size - 1) > 85) {
+                self.renameLabelTextbox -> maxCharacters = strlen(self.renameLabelTextbox -> text);
+            } else {
+                self.renameLabelTextbox -> maxCharacters = 32;
+            }
         }
         if (self.deleteLabelButtonVar) {
             /* delete label */
