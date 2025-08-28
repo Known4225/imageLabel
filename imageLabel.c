@@ -1217,6 +1217,7 @@ void parsePopupOutput(GLFWwindow *window) {
 }
 
 int main(int argc, char *argv[]) {
+    osToolsCloseConsole();
     /* Initialise glfw */
     if (!glfwInit()) {
         return -1;
