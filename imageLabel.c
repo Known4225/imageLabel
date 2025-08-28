@@ -227,7 +227,7 @@ void textureInit(const char *filepath) {
     https://stackoverflow.com/questions/72648980/opengl-sampler2d-array
     */
     list_t *files = osToolsListFiles((char *) filepath);
-    int pathLen = strlen(filepath) + 256;
+    int pathLen = strlen(filepath) + 1024;
     char filename[pathLen];
     /* setup texture parameters */
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -289,8 +289,12 @@ void textureInit(const char *filepath) {
     updateStatistics();
 }
 
-void saveLabelFile(char *filename) {
+int32_t saveLabelFile(char *filename) {
     FILE *labelfp = fopen(filename, "w");
+    if (labelfp == NULL) {
+        printf("savelLabelFile: Could not open file %s\n", filename);
+        return -1;
+    }
     /* header (label names and colors) */
     fprintf(labelfp, "/* header */\n");
     for (int32_t i = 1; i < self.labelNames -> length; i++) {
@@ -307,6 +311,7 @@ void saveLabelFile(char *filename) {
         }
     }
     fclose(labelfp);
+    return 0;
 }
 
 /* update statistics pi chart */
@@ -946,9 +951,9 @@ void importLabels(char *filename) {
         memcpy(checkHold, line, 14);
         if (strcmp(checkHold, "/* labels for ") == 0) {
             /* parse image name */
-            char parsedImageName[256];
+            char parsedImageName[1024];
             int32_t lineLength = strlen(line);
-            if (lineLength > 256 + 13) {
+            if (lineLength > 1024 + 13) {
                 printf("importLabels: Line %d too long\n", iter + 1);
             }
             memcpy(parsedImageName, line + 14, lineLength - 13);
@@ -1073,6 +1078,7 @@ void importLabelsFolder(char *folderpath) {
             list_append(self.labels -> data[foundImage].r, (unitype) (width * self.imageData -> data[foundImage * 2].i), 'd');
             list_append(self.labels -> data[foundImage].r, (unitype) (height * self.imageData -> data[foundImage * 2 + 1].i), 'd');
         }
+        fclose(fp);
     }
     list_free(files);
     updateStatistics();
@@ -1123,8 +1129,9 @@ void parseRibbonOutput() {
         }
         if (ribbonRender.output[2] == 3) { // Save lbl
             if (osToolsFileDialogPrompt(1, 0, 0, "labels.lbl", NULL) != -1) {
-                saveLabelFile(osToolsFileDialog.selectedFilenames -> data[0].s);
-                printf("Saved labels to: %s\n", osToolsFileDialog.selectedFilenames -> data[0].s);
+                if (saveLabelFile(osToolsFileDialog.selectedFilenames -> data[0].s) == 0) {
+                    printf("Saved labels to: %s\n", osToolsFileDialog.selectedFilenames -> data[0].s);
+                }
             }
         }
         if (ribbonRender.output[2] == 4) { // Import Label Folder
