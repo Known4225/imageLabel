@@ -10,8 +10,10 @@ TODO:
 File overwrite prompt not working
 Unicode truncate text function not implemented
 Can't see relevant files when choosing folder
+Autosave on more conditions (moving, resizing, relabelling)
 Include statistics (number of labels, distribution, number of images)
 Rare error of deleting label name when editing a different label name (and maximum characters reached?)
+Don't load all the textures at once and keep them in GPU memory... only load them when requested
 
 train model? no.
 */
@@ -227,16 +229,13 @@ void textureInit(const char *filepath) {
     https://stackoverflow.com/questions/72648980/opengl-sampler2d-array
     */
     list_t *files = osToolsListFiles((char *) filepath);
+    while (files -> length > 3000) {
+        list_pop(files);
+    }
     int pathLen = strlen(filepath) + 1024;
     char filename[pathLen];
     /* setup texture parameters */
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    
-    unsigned int texturePower[128];
-    glGenTextures(25, texturePower);
-    for (int i = 0; i < files -> length / 2 + 1; i++) {
-        glBindTexture(GL_TEXTURE_2D, texturePower[i]);
-    }
     /* each of our images are imageWidth by imageHeight */
     glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGB, imageWidth, imageHeight, files -> length / 2 + 1, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
@@ -262,6 +261,7 @@ void textureInit(const char *filepath) {
                 list_append(self.imageData, (unitype) width, 'i');
                 list_append(self.imageData, (unitype) height, 'i');
                 list_append(self.labels, (unitype) list_init(), 'r');
+                printf("Loaded image %s\n", filename);
             } else {
                 printf("textureInit: Could not resize image\n");
             }
