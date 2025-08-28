@@ -30,6 +30,7 @@ typedef struct {
     list_t *labels; // list of lists that goes class, centerX, centerY, width, height (in pixels) (yolo label format)
     list_t *labelNames; // names of labels
     list_t *statistics; // Name of label, number of labels
+    int32_t totalLabels; // total number of labels
     char labelFilename[4096];
     double textureScaleX; // pixels to coordinates
     double textureScaleY;
@@ -171,6 +172,7 @@ void init() {
     list_append(self.labelColors, (unitype) 255.0, 'd');
     list_append(self.labelColors, (unitype) 0.0, 'd');
     self.currentLabel = 0;
+    self.totalLabels = 0;
 }
 
 void setImageIndex(int32_t set) {
@@ -316,6 +318,7 @@ void updateStatistics() {
     }
     list_append(self.statistics, (unitype) "undefined", 's');
     list_append(self.statistics, (unitype) (double) 0, 'd');
+    self.totalLabels = 0;
     for (int32_t j = 0; j < self.labels -> length; j++) {
         for (int32_t k = 0; k < self.labels -> data[j].r -> length; k += 5) {
             int32_t class = self.labels -> data[j].r -> data[k].i;
@@ -325,6 +328,7 @@ void updateStatistics() {
             } else {
                 self.statistics -> data[class * 2 + 1].d += 1;
             }
+            self.totalLabels++;
         }
     }
 }
@@ -519,7 +523,9 @@ void renderLabelUI() {
         turtleTextWriteStringf(self.labelRGB[2] -> x + self.labelRGB[2] -> length / 2 + self.labelRGB[2] -> size, self.labelRGB[2] -> y, 4, 0, "%d", (int32_t) round(self.labelRGBValue[2]));
     }
     /* draw statistics */
-    drawPiChart(220, -80, 50, self.statistics, self.labelColors);
+    if (self.totalLabels > 0) {
+        drawPiChart(220, -80, 50, self.statistics, self.labelColors);
+    }
 }
 
 /* render loop */
@@ -605,7 +611,8 @@ void render() {
         turtleGoto(centerX - width, centerY + height);
         turtleGoto(centerX - width, centerY - height);
         turtlePenUp();
-        if (turtle.mouseX >= centerX - width - 5 && turtle.mouseX <= centerX + width + 5 && turtle.mouseY >= centerY - height - 5 && turtle.mouseY <= centerY + height + 5) {
+        if (turtle.mouseX >= self.imageX - self.textureScaleX && turtle.mouseX <= self.imageX + self.textureScaleX && turtle.mouseY >= self.imageY - self.textureScaleY && turtle.mouseY <= self.imageY + self.textureScaleY && 
+            turtle.mouseX >= centerX - width - 5 && turtle.mouseX <= centerX + width + 5 && turtle.mouseY >= centerY - height - 5 && turtle.mouseY <= centerY + height + 5) {
             canvasLabelHover = i;
             /* check edge */
             if (turtle.mouseY - centerY > height - 3) {
