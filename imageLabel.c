@@ -1256,6 +1256,14 @@ int main(int argc, char *argv[]) {
     list_append(popupConfig, (unitype) "Cancel", 's');
     list_append(popupConfig, (unitype) "Close", 's');
     popupInitList(popupConfig, -60, -20, 60, 20);
+    /* load logo */
+    GLFWimage icon;
+    int32_t iconChannels;
+    strcpy(constructedFilepath, osToolsFileDialog.executableFilepath);
+    strcat(constructedFilepath, "documentation-images/thumbnail.png");
+    unsigned char *iconPixels = stbi_load(constructedFilepath, &icon.width, &icon.height, &iconChannels, 4); // 4 color channels for RGBA
+    icon.pixels = iconPixels;
+    glfwSetWindowIcon(window, 1, &icon);
 
     init();
     /* load default dataset under images/ */
