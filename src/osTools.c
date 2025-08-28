@@ -708,6 +708,10 @@ void osToolsDeleteFolder(char *folder) {
     // RemoveDirectoryA(folder);
 }
 
+void osToolsCloseConsole() {
+    FreeConsole();
+}
+
 /*
 windows COM port support
 https://learn.microsoft.com/en-us/windows/win32/devio/configuring-a-communications-resource
@@ -1154,6 +1158,11 @@ int32_t osToolsUnmapFile(uint8_t *data) {
         printf("Could not find %p in memory mapped index\n", data);
         return -1;
     }
+}
+
+void osToolsCloseConsole() {
+    /* don't know how to do this yet - https://unix.stackexchange.com/questions/743272/programatically-start-a-background-process-under-linux */
+    return;
 }
 
 #endif

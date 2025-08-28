@@ -1144,6 +1144,9 @@ list_t *osToolsLoadCSVInt(char *filename, osToolsCSV rowOrColumn);
 /* packages a CSV file into a list (headers are strings, all fields are strings) - use OSTOOLS_CSV_ROW to put it in a list of lists where each list is a row of the CSV and use OSTOOLS_CSV_COLUMN to output a list of lists where each list is a column of the CSV */
 list_t *osToolsLoadCSVString(char *filename, osToolsCSV rowOrColumn);
 
+/* untether the program from the console that spawned it - will close a console if the program is run independently */
+void osToolsCloseConsole();
+
 #ifdef OS_WINDOWS
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -15184,6 +15187,10 @@ void osToolsDeleteFolder(char *folder) {
     // RemoveDirectoryA(folder);
 }
 
+void osToolsCloseConsole() {
+    FreeConsole();
+}
+
 /*
 windows COM port support
 https://learn.microsoft.com/en-us/windows/win32/devio/configuring-a-communications-resource
@@ -15630,6 +15637,11 @@ int32_t osToolsUnmapFile(uint8_t *data) {
         printf("Could not find %p in memory mapped index\n", data);
         return -1;
     }
+}
+
+void osToolsCloseConsole() {
+    /* don't know how to do this yet - https://unix.stackexchange.com/questions/743272/programatically-start-a-background-process-under-linux */
+    return;
 }
 
 #endif
